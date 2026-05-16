@@ -2,15 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id) {
+  let userId = session?.user?.id;
+  
+  if (!userId && process.env.NODE_ENV === 'development') {
+    const defaultUser = await prisma.user.findFirst();
+    if (defaultUser) userId = defaultUser.id;
+  }
+
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const brokerAccounts = await prisma.brokerAccount.findMany({
-      where: { userId: session.user.id },
+      where: { userId: userId },
       select: {
         brokerName: true,
         isConnected: true,

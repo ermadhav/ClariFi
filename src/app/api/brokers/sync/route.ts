@@ -9,7 +9,6 @@ import { decryptToken, encryptToken } from '@/lib/encryption';
 export async function POST(request: NextRequest) {
   let userId;
   
-  // Support both internal cron execution (via body) and regular user execution (via session)
   try {
     const session = await auth();
     userId = session?.user?.id;
@@ -20,7 +19,12 @@ export async function POST(request: NextRequest) {
       userId = internalUserId;
     }
   } catch (e) {
-    // Session fetching failed, try falling back to request body if available
+    // Session fetching failed
+  }
+  
+  if (!userId && process.env.NODE_ENV === 'development') {
+    const defaultUser = await prisma.user.findFirst();
+    if (defaultUser) userId = defaultUser.id;
   }
   
   const bodyText = await request.text();
