@@ -125,14 +125,6 @@ export default function Home() {
   const { sidebarOpen, isLoggedIn, setIsLoggedIn, isOnboarded, setIsOnboarded } = useAppStore();
   const [showSplash, setShowSplash] = useState(true);
 
-  if (showSplash) {
-    return (
-      <AnimatePresence>
-        <SplashScreen onComplete={() => setShowSplash(false)} />
-      </AnimatePresence>
-    );
-  }
-
   useEffect(() => {
     // Handle OAuth redirects in SPA
     if (typeof window !== 'undefined') {
@@ -153,6 +145,14 @@ export default function Home() {
       }
     }
   }, []);
+
+  if (showSplash) {
+    return (
+      <AnimatePresence>
+        <SplashScreen onComplete={() => setShowSplash(false)} />
+      </AnimatePresence>
+    );
+  }
 
   if (!isLoggedIn) {
     return (

@@ -36,7 +36,7 @@ export default function SettingsPage() {
           <div><label className="text-xs text-muted-foreground mb-1.5 block">Phone</label><input defaultValue="+91 98765 43210" className="input-field" /></div>
           <div>
             <label className="text-xs text-muted-foreground mb-1.5 block">Risk Appetite</label>
-            <select className="input-field"><option>Conservative</option><option selected>Moderate</option><option>Aggressive</option></select>
+            <select defaultValue="Moderate" className="input-field"><option value="Conservative">Conservative</option><option value="Moderate">Moderate</option><option value="Aggressive">Aggressive</option></select>
           </div>
         </div>
         <button className="btn-primary text-xs mt-4">Save Changes</button>

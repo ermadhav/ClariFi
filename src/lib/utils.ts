@@ -22,7 +22,7 @@ export function formatCurrency(amount: number, compact = false): string {
     currency: 'INR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(amount || 0);
 }
 
 export function formatNumber(num: number): string {
@@ -30,6 +30,7 @@ export function formatNumber(num: number): string {
 }
 
 export function formatPercent(value: number): string {
+  if (value === undefined || value === null || isNaN(value)) return '0.00%';
   const sign = value >= 0 ? '+' : '';
   return `${sign}${value.toFixed(2)}%`;
 }
