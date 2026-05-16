@@ -32,7 +32,10 @@ export function BrokerConnectCard({ broker, isConnected, lastSynced }: BrokerCon
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/brokers/${broker.toLowerCase()}/auth?t=${Date.now()}`, { cache: 'no-store' });
+      const response = await fetch(`/api/brokers/${broker.toLowerCase()}/auth?t=${Date.now()}`, { 
+        cache: 'no-store',
+        credentials: 'include'
+      });
       const data = await response.json();
       
       if (data.authUrl) {
