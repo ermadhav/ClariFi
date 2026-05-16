@@ -91,10 +91,10 @@ export async function POST(request: NextRequest) {
               }
             });
           }
-          holdings = await api.getHoldings(accessToken);
-          positions = await api.getPositions(accessToken);
-          orders = await api.getOrders(accessToken);
-          funds = await api.getFunds(accessToken);
+          try { holdings = await api.getHoldings(accessToken); } catch(e) { console.error('Failed to get holdings', e); }
+          try { positions = await api.getPositions(accessToken); } catch(e) { console.error('Failed to get positions', e); }
+          try { orders = await api.getOrders(accessToken); } catch(e) { console.error('Failed to get orders', e); }
+          try { funds = await api.getFunds(accessToken); } catch(e) { console.error('Failed to get funds', e); }
         } else if (account.brokerName === 'ANGEL_ONE') {
           const api = new AngelOneAPI();
           // Angel one token refresh
