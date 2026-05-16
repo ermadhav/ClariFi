@@ -129,7 +129,7 @@ export default function DashboardPage() {
                 <div className="text-xl font-bold text-foreground">{s.stock.symbol}</div>
                 <div className="flex items-center gap-1 mt-1 text-sm font-medium text-profit">
                   <ArrowUpRight className="w-3.5 h-3.5" />
-                  {formatPercent(s.stock.change)}
+                  {formatPercent(s.stock.change ?? s.stock.pnlPercent)}
                 </div>
               </>
             ) : null}
