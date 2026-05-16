@@ -3,9 +3,23 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Bell, Palette, Shield, CreditCard, Link2, Monitor, Moon, Sun, Smartphone } from 'lucide-react';
 
+import { BrokerConnectCard } from '@/components/brokers/BrokerConnectCard';
+
 export default function SettingsPage() {
   const [theme, setTheme] = useState('dark');
   const [notifications, setNotifications] = useState({ price: true, news: true, portfolio: true, dividends: true, sip: true, email: false, sms: false, push: true });
+  const [brokers, setBrokers] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    fetch('/api/brokers/status')
+      .then(res => res.json())
+      .then(data => {
+        if (data.brokerAccounts) {
+          setBrokers(data.brokerAccounts);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   return (
     <div className="space-y-6 animate-in max-w-3xl">
@@ -82,20 +96,22 @@ export default function SettingsPage() {
       {/* Connected Brokers */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
         <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2"><Link2 className="w-4 h-4 text-indigo-400" /> Connected Brokers</h2>
-        <div className="space-y-3">
-          {[
-            { name: 'Zerodha', status: 'Connected', lastSync: '2 hours ago' },
-            { name: 'Groww', status: 'Connected', lastSync: '5 hours ago' },
-          ].map((b) => (
-            <div key={b.name} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-border/50">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-xs font-bold text-indigo-400">{b.name.substring(0, 2)}</div>
-                <div><div className="text-sm text-foreground">{b.name}</div><div className="text-xs text-muted-foreground">Last synced: {b.lastSync}</div></div>
-              </div>
-              <span className="badge badge-profit">{b.status}</span>
-            </div>
-          ))}
-          <button className="btn-secondary text-xs w-full"><Link2 className="w-3.5 h-3.5" /> Connect Another Broker</button>
+        <div className="space-y-4">
+          <BrokerConnectCard
+            broker="ZERODHA"
+            isConnected={brokers.find(b => b.brokerName === 'ZERODHA')?.isConnected || false}
+            lastSynced={brokers.find(b => b.brokerName === 'ZERODHA')?.lastSynced}
+          />
+          <BrokerConnectCard
+            broker="UPSTOX"
+            isConnected={brokers.find(b => b.brokerName === 'UPSTOX')?.isConnected || false}
+            lastSynced={brokers.find(b => b.brokerName === 'UPSTOX')?.lastSynced}
+          />
+          <BrokerConnectCard
+            broker="ANGEL_ONE"
+            isConnected={brokers.find(b => b.brokerName === 'ANGEL_ONE')?.isConnected || false}
+            lastSynced={brokers.find(b => b.brokerName === 'ANGEL_ONE')?.lastSynced}
+          />
         </div>
       </motion.div>
 
