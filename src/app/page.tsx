@@ -26,6 +26,7 @@ import ToastContainer from '@/components/ui/Toast';
 
 function CommandPalette() {
   const { commandPaletteOpen, setCommandPaletteOpen, setActivePage } = useAppStore();
+  const [search, setSearch] = React.useState('');
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -38,8 +39,6 @@ function CommandPalette() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [commandPaletteOpen, setCommandPaletteOpen]);
-
-  if (!commandPaletteOpen) return null;
 
   const items = [
     { label: 'Dashboard', page: 'dashboard' },
@@ -58,8 +57,9 @@ function CommandPalette() {
     { label: 'Settings', page: 'settings' },
   ];
 
-  const [search, setSearch] = React.useState('');
   const filtered = items.filter((i) => i.label.toLowerCase().includes(search.toLowerCase()));
+
+  if (!commandPaletteOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]" onClick={() => setCommandPaletteOpen(false)}>
