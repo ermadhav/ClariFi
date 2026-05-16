@@ -18,6 +18,8 @@ import ComparePage from '@/components/pages/ComparePage';
 import LearnPage from '@/components/pages/LearnPage';
 import SettingsPage from '@/components/pages/SettingsPage';
 import StockDetailPage from '@/components/pages/StockDetailPage';
+import LoginPage from '@/components/pages/LoginPage';
+import OnboardingPage from '@/components/pages/OnboardingPage';
 
 function CommandPalette() {
   const { commandPaletteOpen, setCommandPaletteOpen, setActivePage } = useAppStore();
@@ -117,7 +119,15 @@ function PageContent() {
 }
 
 export default function Home() {
-  const { sidebarOpen } = useAppStore();
+  const { sidebarOpen, isLoggedIn, setIsLoggedIn, isOnboarded, setIsOnboarded } = useAppStore();
+
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
+  }
+
+  if (!isOnboarded) {
+    return <OnboardingPage onComplete={() => setIsOnboarded(true)} />;
+  }
 
   return (
     <div className="min-h-screen">

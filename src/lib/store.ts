@@ -3,6 +3,10 @@ import { create } from 'zustand';
 import { TimePeriod, BreakdownView } from '@/types';
 
 interface AppState {
+  isLoggedIn: boolean;
+  setIsLoggedIn: (v: boolean) => void;
+  isOnboarded: boolean;
+  setIsOnboarded: (v: boolean) => void;
   sidebarOpen: boolean;
   toggleSidebar: () => void;
   activePage: string;
@@ -22,6 +26,10 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  isLoggedIn: false,
+  setIsLoggedIn: (v) => set({ isLoggedIn: v }),
+  isOnboarded: false,
+  setIsOnboarded: (v) => set({ isOnboarded: v }),
   sidebarOpen: true,
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   activePage: 'dashboard',
