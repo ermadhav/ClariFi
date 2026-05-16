@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { X } from 'lucide-react';
 
 interface BrokerConnectCardProps {
   broker: 'ZERODHA' | 'UPSTOX' | 'ANGEL_ONE';
@@ -20,7 +21,15 @@ export function BrokerConnectCard({ broker, isConnected, lastSynced }: BrokerCon
   
   const info = brokerInfo[broker];
   
+  const [showAngelModal, setShowAngelModal] = useState(false);
+  const [angelCreds, setAngelCreds] = useState({ clientId: '', password: '', totp: '' });
+  
   const handleConnect = async () => {
+    if (broker === 'ANGEL_ONE') {
+      setShowAngelModal(true);
+      return;
+    }
+    
     setLoading(true);
     try {
       const response = await fetch(`/api/brokers/${broker.toLowerCase()}/auth`);
@@ -58,9 +67,36 @@ export function BrokerConnectCard({ broker, isConnected, lastSynced }: BrokerCon
       setLoading(false);
     }
   };
+
+  const handleAngelSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const response = await fetch('/api/brokers/angelone/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(angelCreds),
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Angel One connected successfully!');
+        setShowAngelModal(false);
+        // Page reload to reflect state, or ideally update state via props
+        window.location.reload(); 
+      } else {
+        toast.error(data.error || 'Failed to connect');
+      }
+    } catch (error) {
+      toast.error('Connection failed');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   return (
-    <div className="glass-card p-6 rounded-xl border border-white/5">
+    <>
+      <div className="glass-card p-6 rounded-xl border border-white/5">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-white text-sm" style={{ backgroundColor: info.color }}>
@@ -96,6 +132,38 @@ export function BrokerConnectCard({ broker, isConnected, lastSynced }: BrokerCon
           )}
         </div>
       </div>
-    </div>
+      </div>
+
+      {/* Angel One Credential Modal */}
+      {showAngelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#13141b] border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setShowAngelModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-xl font-bold mb-4">Connect Angel One</h3>
+            <p className="text-sm text-muted-foreground mb-6">Angel One requires your credentials and TOTP to authenticate via SmartAPI.</p>
+            
+            <form onSubmit={handleAngelSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Client ID</label>
+                <input required value={angelCreds.clientId} onChange={e => setAngelCreds({...angelCreds, clientId: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Enter Client ID" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">PIN / Password</label>
+                <input required type="password" value={angelCreds.password} onChange={e => setAngelCreds({...angelCreds, password: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Enter PIN" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">TOTP (Authenticator App)</label>
+                <input required value={angelCreds.totp} onChange={e => setAngelCreds({...angelCreds, totp: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="123456" />
+              </div>
+              <button type="submit" disabled={loading} className="w-full bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium transition-colors mt-2">
+                {loading ? 'Connecting...' : 'Secure Login'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
