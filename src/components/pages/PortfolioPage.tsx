@@ -1,7 +1,6 @@
 'use client';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { mockHoldings, portfolioStats } from '@/lib/mock-data';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Treemap, PieChart, Pie, Cell } from 'recharts';
 import { Grid3x3, PieChart as PieIcon, BarChart3, AlertTriangle, Shield, Target } from 'lucide-react';
@@ -13,10 +12,38 @@ type ChartType = 'donut' | 'treemap' | 'bar';
 export default function PortfolioPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('sector');
   const [chartType, setChartType] = useState<ChartType>('donut');
+  
+  const [holdings, setHoldings] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    async function fetchData() {
+      try {
+        const [holdingsRes, statsRes] = await Promise.all([
+          fetch('/api/holdings'),
+          fetch('/api/portfolio/stats')
+        ]);
+        
+        if (holdingsRes.ok && statsRes.ok) {
+          const hData = await holdingsRes.json();
+          const sData = await statsRes.json();
+          setHoldings(hData.holdings || []);
+          setStats(sData.stats || null);
+        }
+      } catch (err) {
+        console.error("Failed to fetch portfolio data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, []);
 
   const groupBy = (key: ViewMode) => {
     const groups: Record<string, { name: string; value: number; pnl: number; count: number }> = {};
-    mockHoldings.forEach((h) => {
+    holdings.forEach((h) => {
       const k = key === 'marketCap' ? h.marketCap.replace('_', ' ') : h[key];
       if (!groups[k]) groups[k] = { name: k, value: 0, pnl: 0, count: 0 };
       groups[k].value += h.currentValue;
@@ -29,9 +56,15 @@ export default function PortfolioPage() {
   const data = groupBy(viewMode);
   const totalValue = data.reduce((s, d) => s + d.value, 0);
 
-  const concentrationRisk = Math.max(...mockHoldings.map((h) => (h.currentValue / portfolioStats.totalValue) * 100));
-  const sectorCount = new Set(mockHoldings.map((h) => h.sector)).size;
+  const concentrationRisk = stats?.totalValue > 0 ? Math.max(...holdings.map((h) => (h.currentValue / stats.totalValue) * 100)) : 0;
+  const sectorCount = new Set(holdings.map((h) => h.sector)).size;
   const diversificationScore = Math.min(100, sectorCount * 12 + (concentrationRisk < 20 ? 20 : 0));
+
+  if (loading) {
+    return <div className="min-h-[50vh] flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+    </div>;
+  }
 
   return (
     <div className="space-y-6 animate-in">
@@ -106,7 +139,7 @@ export default function PortfolioPage() {
                 <div>
                   <h4 className="text-sm font-medium text-amber-400">Concentration Alert</h4>
                   <p className="text-xs text-amber-400/70 mt-1">
-                    Your largest holding ({mockHoldings.sort((a, b) => b.currentValue - a.currentValue)[0].symbol}) accounts for {concentrationRisk.toFixed(1)}% of your portfolio. Consider diversifying.
+                    Your largest holding ({holdings.length > 0 ? holdings.sort((a, b) => b.currentValue - a.currentValue)[0].symbol : ''}) accounts for {concentrationRisk.toFixed(1)}% of your portfolio. Consider diversifying.
                   </p>
                 </div>
               </div>

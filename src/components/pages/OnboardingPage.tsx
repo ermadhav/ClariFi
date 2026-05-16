@@ -44,6 +44,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [selectedRisk, setSelectedRisk] = useState('moderate');
   const [selectedGoals, setSelectedGoals] = useState<string[]>(['wealth']);
   const [selectedBroker, setSelectedBroker] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const progress = ((step + 1) / steps.length) * 100;
 
@@ -52,9 +53,42 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     return true;
   };
 
-  const next = () => {
-    if (step < steps.length - 1) setStep(step + 1);
-    else onComplete();
+  const next = async () => {
+    if (step < steps.length - 1) {
+      setStep(step + 1);
+    } else {
+      setLoading(true);
+      try {
+        // Save profile data
+        await fetch('/api/user/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            riskAppetite: selectedRisk.toUpperCase(),
+            goals: selectedGoals,
+            isOnboarded: true
+          }),
+        });
+
+        // Simulate broker connection to seed database
+        if (selectedBroker && selectedBroker !== 'manual') {
+          const brokerDetails = brokers.find(b => b.id === selectedBroker);
+          await fetch('/api/broker/simulate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ brokerName: brokerDetails?.name || 'Zerodha' }),
+          });
+        }
+        
+        onComplete();
+      } catch (e) {
+        console.error("Failed onboarding", e);
+        onComplete(); // Still complete so user isn't stuck
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const prev = () => {
@@ -225,8 +259,8 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
             <button onClick={prev} className={`btn-secondary text-sm ${step === 0 ? 'invisible' : ''}`}>
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
-            <button onClick={next} disabled={!canProceed()} className="btn-primary text-sm disabled:opacity-50">
-              {step === steps.length - 1 ? 'Get Started' : 'Continue'} <ArrowRight className="w-4 h-4" />
+            <button onClick={next} disabled={!canProceed() || loading} className="btn-primary text-sm disabled:opacity-50">
+              {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : step === steps.length - 1 ? 'Get Started' : 'Continue'} {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
           </div>
         </div>

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, TrendingDown, Wallet, BarChart3, Award, Plus, RefreshCw, FileText, Bell, ArrowUpRight, ArrowDownRight, Star, Bookmark, ExternalLink } from 'lucide-react';
 import { formatCurrency, formatPercent, getChangeColor, timeAgo } from '@/lib/utils';
-import { mockHoldings, mockNews, portfolioStats, generatePortfolioChartData } from '@/lib/mock-data';
+import { mockNews, generatePortfolioChartData } from '@/lib/mock-data';
 import { useAppStore } from '@/lib/store';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TimePeriod } from '@/types';
@@ -36,30 +36,64 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState(generatePortfolioChartData('1Y'));
   const [sortBy, setSortBy] = useState<string>('pnlPercent');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  
+  const [holdings, setHoldings] = useState<any[]>([]);
+  const [portfolioStats, setPortfolioStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [holdingsRes, statsRes] = await Promise.all([
+          fetch('/api/holdings'),
+          fetch('/api/portfolio/stats')
+        ]);
+        
+        if (holdingsRes.ok && statsRes.ok) {
+          const hData = await holdingsRes.json();
+          const sData = await statsRes.json();
+          setHoldings(hData.holdings || []);
+          setPortfolioStats(sData.stats || null);
+        }
+      } catch (err) {
+        console.error("Failed to fetch dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, []);
 
   useEffect(() => {
     setChartData(generatePortfolioChartData(chartPeriod));
   }, [chartPeriod]);
 
-  const sorted = [...mockHoldings].sort((a, b) => {
+  if (loading) {
+    return <div className="min-h-[50vh] flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+    </div>;
+  }
+
+  const sorted = [...holdings].sort((a, b) => {
     const aVal = a[sortBy as keyof typeof a] as number;
     const bVal = b[sortBy as keyof typeof b] as number;
     return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
   });
 
   const sectorData = Object.entries(
-    mockHoldings.reduce<Record<string, number>>((acc, h) => {
+    holdings.reduce<Record<string, number>>((acc, h) => {
       acc[h.sector] = (acc[h.sector] || 0) + h.currentValue;
       return acc;
     }, {})
   ).map(([name, value]) => ({ name, value: Math.round(value) }));
 
-  const stats = [
+  const stats = portfolioStats ? [
     { label: 'Total Portfolio Value', value: portfolioStats.totalValue, icon: Wallet, color: 'from-indigo-500/20 to-purple-500/10', iconColor: 'text-indigo-400' },
     { label: "Today's P&L", value: portfolioStats.dayPnl, percent: portfolioStats.dayPnlPercent, icon: portfolioStats.dayPnl >= 0 ? TrendingUp : TrendingDown, color: portfolioStats.dayPnl >= 0 ? 'from-emerald-500/20 to-green-500/10' : 'from-red-500/20 to-rose-500/10', iconColor: portfolioStats.dayPnl >= 0 ? 'text-profit' : 'text-loss' },
-    { label: 'Total Returns', value: portfolioStats.totalPnl, percent: portfolioStats.totalPnlPercent, icon: BarChart3, color: 'from-violet-500/20 to-indigo-500/10', iconColor: 'text-violet-400', extra: `XIRR: ${portfolioStats.xirr}%` },
+    { label: 'Total Returns', value: portfolioStats.totalPnl, percent: portfolioStats.totalPnlPercent, icon: BarChart3, color: 'from-violet-500/20 to-indigo-500/10', iconColor: 'text-violet-400', extra: `XIRR: ${portfolioStats.xirr ? portfolioStats.xirr.toFixed(2) : 0}%` },
     { label: 'Best Performer', value: null, icon: Award, color: 'from-amber-500/20 to-yellow-500/10', iconColor: 'text-amber-400', stock: portfolioStats.bestPerformer },
-  ];
+  ] : [];
 
   return (
     <div className="space-y-6 animate-in">
@@ -161,7 +195,7 @@ export default function DashboardPage() {
                   <span className="w-2.5 h-2.5 rounded-full" style={{ background: SECTOR_COLORS[i % SECTOR_COLORS.length] }} />
                   <span className="text-muted-foreground">{s.name}</span>
                 </div>
-                <span className="text-foreground font-medium">{((s.value / portfolioStats.totalValue) * 100).toFixed(1)}%</span>
+                <span className="text-foreground font-medium">{portfolioStats && portfolioStats.totalValue > 0 ? ((s.value / portfolioStats.totalValue) * 100).toFixed(1) : 0}%</span>
               </div>
             ))}
           </div>
@@ -171,7 +205,7 @@ export default function DashboardPage() {
       {/* Holdings Table */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card overflow-hidden">
         <div className="flex items-center justify-between p-5 pb-3">
-          <h2 className="text-sm font-semibold text-foreground">Holdings ({mockHoldings.length})</h2>
+          <h2 className="text-sm font-semibold text-foreground">Holdings ({holdings.length})</h2>
           <div className="flex items-center gap-2">
             <button className="btn-primary text-xs py-1.5 px-3"><Plus className="w-3.5 h-3.5" /> Add Stock</button>
             <button className="btn-secondary text-xs py-1.5 px-3"><RefreshCw className="w-3.5 h-3.5" /> Sync</button>

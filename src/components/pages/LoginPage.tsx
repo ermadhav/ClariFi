@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { signIn } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Mail, Phone, Chrome, Apple, ArrowRight, Shield, Eye, EyeOff, Fingerprint } from 'lucide-react';
 
@@ -24,12 +25,22 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     }, 1500);
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await signIn('otp-login', {
+        identifier: method === 'email' ? email : phone,
+        otp: otp.join(''),
+        redirect: false,
+      });
+      if (res?.ok) {
+        onLogin();
+      } else {
+        alert('Invalid OTP');
+      }
+    } finally {
       setLoading(false);
-      onLogin();
-    }, 1000);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
