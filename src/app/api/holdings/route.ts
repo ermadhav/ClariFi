@@ -8,8 +8,11 @@ export async function GET() {
   const session = await auth();
   let userId = session?.user?.id;
   if (!userId && process.env.NODE_ENV === 'development') {
-    const defaultUser = await prisma.user.findFirst();
-    if (defaultUser) userId = defaultUser.id;
+    let defaultUser = await prisma.user.findFirst();
+    if (!defaultUser) {
+      defaultUser = await prisma.user.create({ data: { name: 'Demo User', email: 'demo@clarifi.app' }});
+    }
+    userId = defaultUser.id;
   }
   
   if (!userId) {
@@ -62,8 +65,11 @@ export async function POST(req: Request) {
   const session = await auth();
   let userId = session?.user?.id;
   if (!userId && process.env.NODE_ENV === 'development') {
-    const defaultUser = await prisma.user.findFirst();
-    if (defaultUser) userId = defaultUser.id;
+    let defaultUser = await prisma.user.findFirst();
+    if (!defaultUser) {
+      defaultUser = await prisma.user.create({ data: { name: 'Demo User', email: 'demo@clarifi.app' }});
+    }
+    userId = defaultUser.id;
   }
   
   if (!userId) {
@@ -108,7 +114,7 @@ export async function POST(req: Request) {
     } else {
       holding = await prisma.holding.create({
         data: {
-          userId: session.user.id,
+          userId: userId,
           ...data,
           totalInvested,
           currentValue: totalInvested,
