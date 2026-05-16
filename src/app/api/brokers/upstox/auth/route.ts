@@ -4,8 +4,10 @@ import { auth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   const session = await auth();
+  console.log('Upstox Auth - Session:', JSON.stringify(session));
+  
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized - Please refresh and log in again' }, { status: 401 });
   }
   
   try {
