@@ -1,5 +1,6 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/lib/store';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
@@ -20,6 +21,8 @@ import SettingsPage from '@/components/pages/SettingsPage';
 import StockDetailPage from '@/components/pages/StockDetailPage';
 import LoginPage from '@/components/pages/LoginPage';
 import OnboardingPage from '@/components/pages/OnboardingPage';
+import SplashScreen from '@/components/ui/SplashScreen';
+import ToastContainer from '@/components/ui/Toast';
 
 function CommandPalette() {
   const { commandPaletteOpen, setCommandPaletteOpen, setActivePage } = useAppStore();
@@ -120,17 +123,37 @@ function PageContent() {
 
 export default function Home() {
   const { sidebarOpen, isLoggedIn, setIsLoggedIn, isOnboarded, setIsOnboarded } = useAppStore();
+  const [showSplash, setShowSplash] = useState(true);
+
+  if (showSplash) {
+    return (
+      <AnimatePresence>
+        <SplashScreen onComplete={() => setShowSplash(false)} />
+      </AnimatePresence>
+    );
+  }
 
   if (!isLoggedIn) {
-    return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
+    return (
+      <>
+        <ToastContainer />
+        <LoginPage onLogin={() => setIsLoggedIn(true)} />
+      </>
+    );
   }
 
   if (!isOnboarded) {
-    return <OnboardingPage onComplete={() => setIsOnboarded(true)} />;
+    return (
+      <>
+        <ToastContainer />
+        <OnboardingPage onComplete={() => setIsOnboarded(true)} />
+      </>
+    );
   }
 
   return (
     <div className="min-h-screen">
+      <ToastContainer />
       <Sidebar />
       <Header />
       <CommandPalette />
