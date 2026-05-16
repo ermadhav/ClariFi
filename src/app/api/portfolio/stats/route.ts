@@ -78,11 +78,11 @@ export async function GET() {
         holdingCount: holdings.length,
         sectorBreakdown,
         marketCapBreakdown: capMap,
-        topGainers: topGainers.map((h) => ({ symbol: h.symbol, companyName: h.companyName, pnlPercent: h.pnlPercent })),
-        topLosers: topLosers.map((h) => ({ symbol: h.symbol, companyName: h.companyName, pnlPercent: h.pnlPercent })),
+        topGainers: topGainers.map((h) => ({ symbol: h.symbol || h.stockSymbol?.split(':')[1] || 'UNKNOWN', companyName: h.companyName, pnlPercent: h.pnlPercent })),
+        topLosers: topLosers.map((h) => ({ symbol: h.symbol || h.stockSymbol?.split(':')[1] || 'UNKNOWN', companyName: h.companyName, pnlPercent: h.pnlPercent })),
         concentrationRisk,
         diversificationScore,
-        bestPerformer: { symbol: bestPerformer.symbol, pnlPercent: bestPerformer.pnlPercent },
+        bestPerformer: { symbol: bestPerformer.symbol || bestPerformer.stockSymbol?.split(':')[1] || 'UNKNOWN', pnlPercent: bestPerformer.pnlPercent },
       },
     });
   } catch (error) {

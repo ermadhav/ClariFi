@@ -233,15 +233,15 @@ export default function DashboardPage() {
             </thead>
             <tbody>
               {sorted.map((h, i) => (
-                <tr key={h.id} className="border-t border-border/50 hover:bg-white/[0.02] transition-colors cursor-pointer" onClick={() => setActivePage('stock-' + h.symbol)}>
+                <tr key={h.id} className="border-t border-border/50 hover:bg-white/[0.02] transition-colors cursor-pointer" onClick={() => setActivePage('stock-' + (h.symbol || h.stockSymbol?.split(':')[1] || ''))}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-xs font-bold text-indigo-400">
-                        {h.symbol.substring(0, 2)}
+                        {(h.symbol || h.stockSymbol?.split(':')[1] || 'UN').substring(0, 2)}
                       </div>
                       <div>
                         <div className="font-medium text-foreground">{h.companyName}</div>
-                        <div className="text-xs text-muted-foreground">{h.exchange}:{h.symbol}</div>
+                        <div className="text-xs text-muted-foreground">{h.exchange}:{h.symbol || h.stockSymbol?.split(':')[1] || ''}</div>
                       </div>
                     </div>
                   </td>
