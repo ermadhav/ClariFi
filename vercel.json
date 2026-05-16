@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/brokers/sync",
+      "schedule": "0 18 * * *"
+    }
+  ]
+}

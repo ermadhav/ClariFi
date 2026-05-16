@@ -67,6 +67,9 @@ export async function POST(request: NextRequest) {
     for (const account of brokerAccounts) {
       try {
         let holdings: any[] = [];
+        let positions: any[] = [];
+        let orders: any[] = [];
+        let funds: any = null;
         let accessToken = decryptToken(account.accessToken!);
         
         // Fetch holdings based on broker
@@ -89,6 +92,9 @@ export async function POST(request: NextRequest) {
             });
           }
           holdings = await api.getHoldings(accessToken);
+          positions = await api.getPositions(accessToken);
+          orders = await api.getOrders(accessToken);
+          funds = await api.getFunds(accessToken);
         } else if (account.brokerName === 'ANGEL_ONE') {
           const api = new AngelOneAPI();
           // Angel one token refresh
@@ -151,6 +157,93 @@ export async function POST(request: NextRequest) {
               pnlPercent: holding.averagePrice > 0 ? ((currentPrice - holding.averagePrice) / holding.averagePrice) * 100 : 0,
               firstBoughtDate: new Date(),
               brokerId: account.id,
+            }
+          });
+        }
+
+        // Sync Positions
+        for (const pos of positions) {
+          const stockSymbol = `${pos.exchange}:${pos.symbol}`;
+          await prisma.position.upsert({
+            where: {
+              userId_symbol_brokerId_product: {
+                userId: userId,
+                symbol: stockSymbol,
+                brokerId: account.id,
+                product: pos.product || 'UNKNOWN'
+              }
+            },
+            update: {
+              quantity: pos.quantity,
+              averagePrice: pos.averagePrice,
+              currentPrice: pos.currentPrice,
+              pnl: pos.pnl,
+              pnlPercent: pos.averagePrice > 0 ? (pos.pnl / (Math.abs(pos.quantity) * pos.averagePrice)) * 100 : 0
+            },
+            create: {
+              userId: userId,
+              brokerId: account.id,
+              symbol: stockSymbol,
+              exchange: pos.exchange as any,
+              product: pos.product || 'UNKNOWN',
+              quantity: pos.quantity,
+              averagePrice: pos.averagePrice,
+              currentPrice: pos.currentPrice,
+              pnl: pos.pnl,
+              pnlPercent: pos.averagePrice > 0 ? (pos.pnl / (Math.abs(pos.quantity) * pos.averagePrice)) * 100 : 0
+            }
+          });
+        }
+
+        // Sync Orders
+        for (const order of orders) {
+          const stockSymbol = `${order.exchange}:${order.symbol}`;
+          await prisma.order.upsert({
+            where: {
+              userId_orderId_brokerId: {
+                userId: userId,
+                orderId: order.orderId,
+                brokerId: account.id
+              }
+            },
+            update: {
+              status: order.status,
+            },
+            create: {
+              userId: userId,
+              brokerId: account.id,
+              orderId: order.orderId,
+              symbol: stockSymbol,
+              exchange: order.exchange as any,
+              type: order.type === 'BUY' ? 'BUY' : 'SELL',
+              quantity: order.quantity,
+              price: order.price,
+              status: order.status,
+              timestamp: order.timestamp
+            }
+          });
+        }
+
+        // Sync Funds
+        if (funds) {
+          await prisma.fund.upsert({
+            where: {
+              userId_brokerId: {
+                userId: userId,
+                brokerId: account.id
+              }
+            },
+            update: {
+              availableMargin: funds.availableMargin,
+              usedMargin: funds.usedMargin,
+              totalBalance: funds.totalBalance
+            },
+            create: {
+              userId: userId,
+              brokerId: account.id,
+              availableMargin: funds.availableMargin,
+              usedMargin: funds.usedMargin,
+              totalBalance: funds.totalBalance
             }
           });
         }

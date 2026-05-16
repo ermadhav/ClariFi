@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { mockHoldings, mockTransactions } from '@/lib/mock-data';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
-import { ArrowLeft, Star, Bell, Share2, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Bot, ChevronDown, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Star, Bell, Share2, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Bot, ChevronDown, Plus, Minus, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
 const quarterlyData = [
@@ -32,13 +32,36 @@ function generatePriceHistory(currentPrice: number) {
 
 export default function StockDetailPage({ symbol }: { symbol: string }) {
   const { setActivePage } = useAppStore();
-  const stock = mockHoldings.find((h) => h.symbol === symbol);
+  const [stock, setStock] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('1Y');
   const [showInsights, setShowInsights] = useState(true);
 
+  useEffect(() => {
+    const fetchStock = async () => {
+      try {
+        const res = await fetch('/api/holdings');
+        const data = await res.json();
+        const found = data.holdings?.find((h: any) => h.symbol === symbol || h.stockSymbol.includes(symbol));
+        setStock(found || null);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStock();
+  }, [symbol]);
+
+  if (loading) return (
+    <div className="flex h-[400px] items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+    </div>
+  );
+
   if (!stock) return (
     <div className="text-center py-20">
-      <p className="text-muted-foreground">Stock not found</p>
+      <p className="text-muted-foreground">Stock not found in your portfolio.</p>
       <button onClick={() => setActivePage('dashboard')} className="btn-primary text-xs mt-4">Go to Dashboard</button>
     </div>
   );
@@ -56,7 +79,7 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
     fiiHolding: (15 + Math.random() * 20).toFixed(1),
     diiHolding: (10 + Math.random() * 15).toFixed(1),
     bookValue: (stock.currentPrice * (0.3 + Math.random() * 0.4)).toFixed(0),
-    eps: (stock.currentPrice / stock.pe).toFixed(2),
+    eps: (stock.currentPrice / (stock.pe || 15)).toFixed(2),
   };
 
   return (
@@ -129,19 +152,19 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
           <h2 className="text-sm font-semibold text-foreground mb-4">Key Metrics</h2>
           <div className="space-y-2.5">
             {[
-              ['Market Cap', stock.marketCap.replace('_', ' ')],
-              ['P/E Ratio', stock.pe.toFixed(1)],
-              ['P/B Ratio', stock.pb.toFixed(1)],
+              ['Market Cap', (stock.marketCap || 'UNKNOWN').replace('_', ' ')],
+              ['P/E Ratio', (stock.pe || 15).toFixed(1)],
+              ['P/B Ratio', (stock.pb || 2).toFixed(1)],
               ['EPS', `₹${fundamentals.eps}`],
               ['Book Value', `₹${fundamentals.bookValue}`],
-              ['Dividend Yield', `${stock.dividendYield}%`],
-              ['Beta', stock.beta.toFixed(2)],
+              ['Dividend Yield', `${stock.dividendYield || 0}%`],
+              ['Beta', (stock.beta || 1).toFixed(2)],
               ['ROE', `${fundamentals.roe}%`],
               ['ROCE', `${fundamentals.roce}%`],
               ['Debt/Equity', fundamentals.debtToEquity],
-              ['52W High', formatCurrency(stock.high52w)],
-              ['52W Low', formatCurrency(stock.low52w)],
-              ['Volume', stock.volume.toLocaleString('en-IN')],
+              ['52W High', formatCurrency(stock.high52w || stock.currentPrice * 1.2)],
+              ['52W Low', formatCurrency(stock.low52w || stock.currentPrice * 0.8)],
+              ['Volume', (stock.volume || 1000000).toLocaleString('en-IN')],
               ['Promoter %', `${fundamentals.promoterHolding}%`],
               ['FII %', `${fundamentals.fiiHolding}%`],
               ['DII %', `${fundamentals.diiHolding}%`],
@@ -195,7 +218,7 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
             <div>
               <h3 className="text-xs font-semibold text-indigo-400 mb-1.5">What This Means for You</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                {stock.companyName} has a P/E ratio of {stock.pe.toFixed(1)}, which is {stock.pe < 20 ? 'below' : stock.pe < 35 ? 'near' : 'above'} the sector average. This suggests the stock is {stock.pe < 20 ? 'potentially undervalued' : stock.pe < 35 ? 'fairly valued' : 'trading at a premium'} relative to its earnings.
+                {stock.companyName} has a P/E ratio of {(stock.pe || 15).toFixed(1)}, which is {(stock.pe || 15) < 20 ? 'below' : (stock.pe || 15) < 35 ? 'near' : 'above'} the sector average. This suggests the stock is {(stock.pe || 15) < 20 ? 'potentially undervalued' : (stock.pe || 15) < 35 ? 'fairly valued' : 'trading at a premium'} relative to its earnings.
               </p>
             </div>
             <div>
@@ -209,8 +232,8 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
             <div>
               <h3 className="text-xs font-semibold text-amber-400 mb-1.5">⚠️ Watch Out</h3>
               <ul className="space-y-1">
-                <li className="text-xs text-muted-foreground">• Beta of {stock.beta.toFixed(2)} means {stock.beta > 1 ? 'higher than market' : 'lower than market'} volatility</li>
-                <li className="text-xs text-muted-foreground">• Current price is {((stock.high52w - stock.currentPrice) / stock.high52w * 100).toFixed(0)}% below 52-week high</li>
+                <li className="text-xs text-muted-foreground">• Beta of {(stock.beta || 1).toFixed(2)} means {(stock.beta || 1) > 1 ? 'higher than market' : 'lower than market'} volatility</li>
+                <li className="text-xs text-muted-foreground">• Current price is {(((stock.high52w || stock.currentPrice * 1.2) - stock.currentPrice) / (stock.high52w || stock.currentPrice * 1.2) * 100).toFixed(0)}% below 52-week high</li>
               </ul>
             </div>
             <div className="pt-2 border-t border-border/30">
