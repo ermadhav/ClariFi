@@ -139,7 +139,7 @@ export default function PortfolioPage() {
                 <div>
                   <h4 className="text-sm font-medium text-amber-400">Concentration Alert</h4>
                   <p className="text-xs text-amber-400/70 mt-1">
-                    Your largest holding ({holdings.length > 0 ? holdings.sort((a, b) => b.currentValue - a.currentValue)[0].symbol : ''}) accounts for {concentrationRisk.toFixed(1)}% of your portfolio. Consider diversifying.
+                    Your largest holding ({holdings.length > 0 ? (holdings.sort((a, b) => b.currentValue - a.currentValue)[0].symbol || holdings[0].stockSymbol?.split(':')[1] || 'Unknown') : ''}) accounts for {concentrationRisk.toFixed(1)}% of your portfolio. Consider diversifying.
                   </p>
                 </div>
               </div>
