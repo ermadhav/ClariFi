@@ -39,6 +39,9 @@ model User {
   capitalGains   CapitalGain[]
   mutualFunds    MutualFund[]
   brokerAccounts BrokerAccount[]
+  positions      Position[]
+  orders         Order[]
+  funds          Fund[]
   goals          UserGoal[]
   subscription   Subscription?
 
@@ -162,6 +165,69 @@ model Transaction {
   @@index([userId, symbol])
   @@index([date])
   @@map("transactions")
+}
+
+model Position {
+  id             String   @id @default(cuid())
+  userId         String
+  brokerId       String?
+  symbol         String
+  exchange       Exchange @default(NSE)
+  product        String?  // e.g., INTRADAY, DELIVERY, MARGIN
+  quantity       Int
+  averagePrice   Float
+  currentPrice   Float    @default(0)
+  pnl            Float    @default(0)
+  pnlPercent     Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broker       BrokerAccount? @relation(fields: [brokerId], references: [id])
+
+  @@unique([userId, symbol, brokerId, product])
+  @@index([userId])
+  @@map("positions")
+}
+
+model Order {
+  id             String   @id @default(cuid())
+  orderId        String   // Broker's order ID
+  userId         String
+  brokerId       String?
+  symbol         String
+  exchange       Exchange @default(NSE)
+  type           TransactionType
+  quantity       Int
+  price          Float
+  status         String   // e.g., COMPLETE, REJECTED, CANCELLED
+  timestamp      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broker       BrokerAccount? @relation(fields: [brokerId], references: [id])
+
+  @@unique([userId, orderId, brokerId])
+  @@index([userId])
+  @@map("orders")
+}
+
+model Fund {
+  id             String   @id @default(cuid())
+  userId         String
+  brokerId       String?
+  availableMargin Float   @default(0)
+  usedMargin     Float    @default(0)
+  totalBalance   Float    @default(0)
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broker       BrokerAccount? @relation(fields: [brokerId], references: [id])
+
+  @@unique([userId, brokerId])
+  @@index([userId])
+  @@map("funds")
 }
 
 model Watchlist {
@@ -311,6 +377,11 @@ model BrokerAccount {
 
   @@unique([userId, brokerName])
   @@map("broker_accounts")
+
+  holdings       Holding[]
+  positions      Position[]
+  orders         Order[]
+  funds          Fund[]
 }
 
 model BrokerAuthState {
