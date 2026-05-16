@@ -133,6 +133,27 @@ export default function Home() {
     );
   }
 
+  useEffect(() => {
+    // Handle OAuth redirects in SPA
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const success = url.searchParams.get('success');
+      const error = url.searchParams.get('error');
+      
+      if (success) {
+        import('@/components/ui/Toast').then(({ showToast }) => {
+          showToast('Broker connected successfully!', 'success');
+        });
+        window.history.replaceState({}, '', '/');
+      } else if (error) {
+        import('@/components/ui/Toast').then(({ showToast }) => {
+          showToast(`Broker connection failed: ${error}`, 'error');
+        });
+        window.history.replaceState({}, '', '/');
+      }
+    }
+  }, []);
+
   if (!isLoggedIn) {
     return (
       <>

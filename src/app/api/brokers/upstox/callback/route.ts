@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const NEXTAUTH_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
   
   if (!code || !state) {
-    return NextResponse.redirect(`${NEXTAUTH_URL}/settings/brokers?error=auth_failed`);
+    return NextResponse.redirect(`${NEXTAUTH_URL}/?error=auth_failed`);
   }
   
   try {
@@ -52,9 +52,9 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify({ userId: authResult.userId, broker: 'UPSTOX' })
     }).catch(e => console.error("Immediate sync trigger failed:", e));
     
-    return NextResponse.redirect(`${NEXTAUTH_URL}/settings/brokers?success=true`);
+    return NextResponse.redirect(`${NEXTAUTH_URL}/?success=true`);
   } catch (error) {
     console.error('Upstox callback error:', error);
-    return NextResponse.redirect(`${NEXTAUTH_URL}/settings/brokers?error=connection_failed`);
+    return NextResponse.redirect(`${NEXTAUTH_URL}/?error=connection_failed`);
   }
 }
