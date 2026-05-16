@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { toast } from 'sonner';
+import { showToast } from '@/components/ui/Toast';
 import { X } from 'lucide-react';
 
 interface BrokerConnectCardProps {
@@ -37,9 +37,11 @@ export function BrokerConnectCard({ broker, isConnected, lastSynced }: BrokerCon
       
       if (data.authUrl) {
         window.location.href = data.authUrl;
+      } else if (data.error) {
+        showToast(data.error, 'error');
       }
     } catch (error) {
-      toast.error('Failed to connect broker');
+      showToast('Failed to connect broker', 'error');
     } finally {
       setLoading(false);
     }
@@ -57,12 +59,12 @@ export function BrokerConnectCard({ broker, isConnected, lastSynced }: BrokerCon
       const data = await response.json();
       
       if (data.success) {
-        toast.success('Portfolio synced successfully');
+        showToast('Portfolio synced successfully', 'success');
       } else {
-        toast.error('Sync failed');
+        showToast('Sync failed', 'error');
       }
     } catch (error) {
-      toast.error('Failed to sync portfolio');
+      showToast('Failed to sync portfolio', 'error');
     } finally {
       setLoading(false);
     }
@@ -80,15 +82,15 @@ export function BrokerConnectCard({ broker, isConnected, lastSynced }: BrokerCon
       const data = await response.json();
       
       if (data.success) {
-        toast.success('Angel One connected successfully!');
+        showToast('Angel One connected successfully!', 'success');
         setShowAngelModal(false);
         // Page reload to reflect state, or ideally update state via props
         window.location.reload(); 
       } else {
-        toast.error(data.error || 'Failed to connect');
+        showToast(data.error || 'Failed to connect', 'error');
       }
     } catch (error) {
-      toast.error('Connection failed');
+      showToast('Connection failed', 'error');
     } finally {
       setLoading(false);
     }
