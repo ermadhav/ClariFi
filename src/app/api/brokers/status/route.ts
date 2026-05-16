@@ -9,8 +9,11 @@ export async function GET(request: NextRequest) {
   let userId = session?.user?.id;
   
   if (!userId && process.env.NODE_ENV === 'development') {
-    const defaultUser = await prisma.user.findFirst();
-    if (defaultUser) userId = defaultUser.id;
+    let defaultUser = await prisma.user.findFirst();
+    if (!defaultUser) {
+      defaultUser = await prisma.user.create({ data: { name: 'Demo User', email: 'demo@clarifi.app' }});
+    }
+    userId = defaultUser.id;
   }
 
   if (!userId) {

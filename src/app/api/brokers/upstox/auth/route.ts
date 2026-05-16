@@ -11,8 +11,16 @@ export async function GET(request: NextRequest) {
   
   // Dev bypass if cookies are out of sync
   if (!userId && process.env.NODE_ENV === 'development') {
-    const defaultUser = await prisma.user.findFirst();
-    if (defaultUser) userId = defaultUser.id;
+    let defaultUser = await prisma.user.findFirst();
+    if (!defaultUser) {
+      defaultUser = await prisma.user.create({
+        data: {
+          name: 'Demo User',
+          email: 'demo@clarifi.app',
+        }
+      });
+    }
+    userId = defaultUser.id;
   }
 
   if (!userId) {

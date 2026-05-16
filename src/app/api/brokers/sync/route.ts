@@ -23,8 +23,11 @@ export async function POST(request: NextRequest) {
   }
   
   if (!userId && process.env.NODE_ENV === 'development') {
-    const defaultUser = await prisma.user.findFirst();
-    if (defaultUser) userId = defaultUser.id;
+    let defaultUser = await prisma.user.findFirst();
+    if (!defaultUser) {
+      defaultUser = await prisma.user.create({ data: { name: 'Demo User', email: 'demo@clarifi.app' }});
+    }
+    userId = defaultUser.id;
   }
   
   const bodyText = await request.text();
