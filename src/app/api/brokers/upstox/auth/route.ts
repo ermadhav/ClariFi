@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { UpstoxAPI } from '@/lib/apis/brokers/upstox';
 import { auth } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const session = await auth();
   console.log('Upstox Auth - Session:', JSON.stringify(session));
