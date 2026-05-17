@@ -1,98 +1,76 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { ArrowLeft, Plus, Download, Link as LinkIcon, TrendingUp, TrendingDown, Loader2, Bell, Share2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, ComposedChart } from 'recharts';
 
-// Realistic Mock Data for Financial Tables
-const quarterlyResults = [
-  { metric: 'Sales', q1: 14200, q2: 15100, q3: 15800, q4: 16500, q5: 17200 },
-  { metric: 'Expenses', q1: 11200, q2: 11800, q3: 12200, q4: 12800, q5: 13300 },
-  { metric: 'Operating Profit', q1: 3000, q2: 3300, q3: 3600, q4: 3700, q5: 3900 },
-  { metric: 'OPM %', q1: '21%', q2: '22%', q3: '23%', q4: '22%', q5: '23%' },
-  { metric: 'Other Income', q1: 150, q2: 120, q3: 180, q4: 200, q5: 210 },
-  { metric: 'Interest', q1: 300, q2: 290, q3: 280, q4: 270, q5: 260 },
-  { metric: 'Depreciation', q1: 400, q2: 410, q3: 420, q4: 430, q5: 440 },
-  { metric: 'Profit before tax', q1: 2450, q2: 2720, q3: 3080, q4: 3200, q5: 3410 },
-  { metric: 'Net Profit', q1: 1850, q2: 2040, q3: 2310, q4: 2400, q5: 2560 },
-];
-
-const profitAndLoss = [
-  { metric: 'Sales', y1: 45000, y2: 52000, y3: 58000, y4: 65000, y5: 72000 },
-  { metric: 'Expenses', y1: 36000, y2: 41000, y3: 45000, y4: 50000, y5: 55000 },
-  { metric: 'Operating Profit', y1: 9000, y2: 11000, y3: 13000, y4: 15000, y5: 17000 },
-  { metric: 'OPM %', y1: '20%', y2: '21%', y3: '22%', y4: '23%', y5: '24%' },
-  { metric: 'Net Profit', y1: 6500, y2: 7800, y3: 9200, y4: 10500, y5: 12000 },
-  { metric: 'EPS in Rs', y1: 12.5, y2: 15.0, y3: 17.6, y4: 20.1, y5: 23.0 },
-  { metric: 'Dividend Payout %', y1: '25%', y2: '25%', y3: '30%', y4: '30%', y5: '35%' },
-];
-
-const balanceSheet = [
-  { metric: 'Equity Capital', y1: 500, y2: 500, y3: 500, y4: 500, y5: 500 },
-  { metric: 'Reserves', y1: 25000, y2: 30000, y3: 36000, y4: 43000, y5: 51000 },
-  { metric: 'Borrowings', y1: 8000, y2: 7500, y3: 6200, y4: 5800, y5: 4500 },
-  { metric: 'Other Liabilities', y1: 12000, y2: 13500, y3: 14200, y4: 15800, y5: 17000 },
-  { metric: 'Total Liabilities', y1: 45500, y2: 51500, y3: 56900, y4: 65100, y5: 73000 },
-  { metric: 'Fixed Assets', y1: 22000, y2: 24500, y3: 26800, y4: 29000, y5: 32500 },
-  { metric: 'CWIP', y1: 1500, y2: 1200, y3: 800, y4: 2100, y5: 1800 },
-  { metric: 'Investments', y1: 8500, y2: 10200, y3: 12500, y4: 15000, y5: 18200 },
-  { metric: 'Other Assets', y1: 13500, y2: 15600, y3: 16800, y4: 19000, y5: 20500 },
-  { metric: 'Total Assets', y1: 45500, y2: 51500, y3: 56900, y4: 65100, y5: 73000 },
-];
-
-const TableSection = ({ title, data, cols }: { title: string, data: any[], cols: string[] }) => (
-  <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="glass-card p-6 mt-6">
-    <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-white/10 text-muted-foreground">
-            <th className="text-left font-medium py-3 px-2">Data</th>
-            {cols.map(c => <th key={c} className="text-right font-medium py-3 px-2">{c}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, i) => (
-            <tr key={i} className={`border-b border-white/5 hover:bg-white/5 transition-colors ${row.metric === 'Net Profit' || row.metric === 'Operating Profit' ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
-              <td className="py-2.5 px-2">{row.metric}</td>
-              {Object.keys(row).filter(k => k !== 'metric').map(k => (
-                <td key={k} className="text-right py-2.5 px-2">{row[k].toLocaleString('en-IN')}</td>
-              ))}
+const TableSection = ({ title, data, cols }: { title: string, data: any[], cols: string[] }) => {
+  if (!data || data.length === 0) return null;
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="glass-card p-6 mt-6">
+      <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10 text-muted-foreground">
+              <th className="text-left font-medium py-3 px-2 min-w-[150px]">Data</th>
+              {cols.map((c, i) => <th key={i} className="text-right font-medium py-3 px-2 min-w-[80px]">{c}</th>)}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </motion.div>
-);
+          </thead>
+          <tbody>
+            {data.map((row, i) => (
+              <tr key={i} className={`border-b border-white/5 hover:bg-white/5 transition-colors ${row.metric?.includes('Profit') ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                <td className="py-2.5 px-2">{row.metric}</td>
+                {cols.map((k) => (
+                  <td key={k} className="text-right py-2.5 px-2">
+                     {row[k] !== undefined ? (typeof row[k] === 'number' ? row[k].toLocaleString('en-IN') : row[k]) : '-'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </motion.div>
+  );
+};
 
 export default function StockDetailPage({ symbol }: { symbol: string }) {
   const { setActivePage } = useAppStore();
   const [stock, setStock] = useState<any>(null);
+  const [screener, setScreener] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [chartPeriod, setChartPeriod] = useState('1Yr');
   const [inWatchlist, setInWatchlist] = useState(false);
+  const [showFullAbout, setShowFullAbout] = useState(false);
+
+  const rangeMap: Record<string, string> = {
+    '1M': '1mo', '6M': '6mo', '1Yr': '1y', '3Yr': '3y', '5Yr': '5y', '10Yr': '10y', 'Max': 'max'
+  };
 
   useEffect(() => {
-    const fetchStock = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const res = await fetch(`/api/stocks/${symbol}`);
-        if (res.ok) {
-          const data = await res.json();
-          setStock(data);
-        }
+        const [quoteRes, screenerRes] = await Promise.all([
+          fetch(`/api/stocks/${symbol}?range=${rangeMap[chartPeriod]}`),
+          fetch(`/api/stocks/${symbol}/screener`)
+        ]);
+        
+        if (quoteRes.ok) setStock(await quoteRes.json());
+        if (screenerRes.ok) setScreener(await screenerRes.json());
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-    fetchStock();
-  }, [symbol]);
+    fetchData();
+  }, [symbol, chartPeriod]);
 
-  if (loading) return (
+  if (loading && !stock) return (
     <div className="flex h-[60vh] items-center justify-center">
       <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
     </div>
@@ -106,16 +84,15 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
   );
 
   const cleanSymbol = stock.symbol.replace('.NS', '').replace('.BO', '');
-  
-  // Deterministic random generators based on symbol for consistent mocks
-  const seed = cleanSymbol.charCodeAt(0) + cleanSymbol.charCodeAt(cleanSymbol.length - 1);
-  const mcap = Math.floor(stock.currentPrice * (100 + (seed % 500)) * 1.5);
-  const pe = (10 + (seed % 60)).toFixed(1);
-  const pb = (1 + (seed % 15)).toFixed(1);
-  const roe = (8 + (seed % 25)).toFixed(1);
-  const roce = (10 + (seed % 25)).toFixed(1);
-  const divYield = ((seed % 30) / 10).toFixed(2);
-  const bookValue = (stock.currentPrice / parseFloat(pb)).toFixed(2);
+  const r = screener?.topRatios || {};
+
+  const mcap = r['Market Cap']?.replace('₹', '').replace('Cr.', '').trim() || (stock.currentPrice * 1234).toFixed(0);
+  const pe = r['Stock P/E'] || (stock.pe || 15).toFixed(1);
+  const pb = r['Book Value'] || '0';
+  const roe = r['ROE'] || '0.0%';
+  const roce = r['ROCE'] || '0.0%';
+  const divYield = r['Dividend Yield'] || '0.0%';
+  const faceValue = r['Face Value'] || '10.0';
 
   return (
     <div className="space-y-6 animate-in max-w-6xl mx-auto pb-12">
@@ -138,12 +115,11 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
             </div>
           </div>
           
-          <div className="flex items-center gap-4 text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-4 text-xs font-medium text-muted-foreground">
             <a href={`https://www.${cleanSymbol.toLowerCase()}.com`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-indigo-400 transition-colors">
               <LinkIcon className="w-3.5 h-3.5" /> {cleanSymbol.toLowerCase()}.com
             </a>
             <span className="flex items-center gap-1"><span className="text-indigo-400">NSE:</span> {cleanSymbol}</span>
-            <span className="flex items-center gap-1"><span className="text-purple-400">BSE:</span> 5{seed}0{seed % 9}</span>
           </div>
         </div>
         
@@ -179,23 +155,23 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
             </div>
             <div className="flex flex-col border-b md:border-b-0 border-white/5 pb-2 md:pb-0">
               <span className="text-xs text-muted-foreground mb-1">Book Value</span>
-              <span className="text-sm font-semibold text-foreground">₹ {bookValue}</span>
+              <span className="text-sm font-semibold text-foreground">₹ {pb}</span>
             </div>
             <div className="flex flex-col border-b md:border-b-0 border-white/5 pb-2 md:pb-0">
               <span className="text-xs text-muted-foreground mb-1">Dividend Yield</span>
-              <span className="text-sm font-semibold text-foreground">{divYield} %</span>
+              <span className="text-sm font-semibold text-foreground">{divYield}</span>
             </div>
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground mb-1">ROCE</span>
-              <span className="text-sm font-semibold text-foreground">{roce} %</span>
+              <span className="text-sm font-semibold text-foreground">{roce}</span>
             </div>
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground mb-1">ROE</span>
-              <span className="text-sm font-semibold text-foreground">{roe} %</span>
+              <span className="text-sm font-semibold text-foreground">{roe}</span>
             </div>
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground mb-1">Face Value</span>
-              <span className="text-sm font-semibold text-foreground">₹ {(seed % 2 === 0 ? 10 : 1).toFixed(2)}</span>
+              <span className="text-sm font-semibold text-foreground">₹ {faceValue}</span>
             </div>
           </div>
           
@@ -210,16 +186,21 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
 
         <div className="glass-card p-6">
           <h3 className="text-sm font-bold text-foreground mb-2">ABOUT</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-            {stock.companyName} is primarily involved in the core operations related to the {cleanSymbol.includes('BANK') ? 'Banking and Financial' : 'Technology and Manufacturing'} sector. It has established a strong domestic presence and continues to expand its footprint in international markets.
+          <p className={`text-xs text-muted-foreground leading-relaxed ${showFullAbout ? '' : 'line-clamp-4'}`}>
+            {screener?.about || `${stock.companyName} is primarily involved in the core operations related to its sector.`}
           </p>
-          <h3 className="text-sm font-bold text-foreground mb-2">KEY POINTS</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed mb-2 font-medium">Business Segments</p>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            1) Core Operations (62% vs 59% in FY23). The company has witnessed strong growth in domestic consumption.<br/>
-            2) Exports & Global Sales (38% vs 41% in FY23).
-          </p>
-          <button className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 mt-4">READ MORE &gt;</button>
+          
+          <h3 className="text-sm font-bold text-foreground mt-6 mb-2">KEY POINTS</h3>
+          <div 
+            className={`text-xs text-muted-foreground leading-relaxed prose prose-invert max-w-none ${showFullAbout ? '' : 'line-clamp-6'}`}
+            dangerouslySetInnerHTML={{ __html: screener?.keyPoints || 'Business Segments data available on full expansion.' }}
+          />
+          <button 
+            onClick={() => setShowFullAbout(!showFullAbout)}
+            className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 mt-4"
+          >
+            {showFullAbout ? 'READ LESS <' : 'READ MORE >'}
+          </button>
         </div>
       </div>
 
@@ -278,9 +259,9 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
       </div>
 
       {/* Financial Tables */}
-      <TableSection title="Quarterly Results" data={quarterlyResults} cols={['Mar 2023', 'Jun 2023', 'Sep 2023', 'Dec 2023', 'Mar 2024']} />
-      <TableSection title="Profit & Loss" data={profitAndLoss} cols={['Mar 2020', 'Mar 2021', 'Mar 2022', 'Mar 2023', 'Mar 2024']} />
-      <TableSection title="Balance Sheet" data={balanceSheet} cols={['Mar 2020', 'Mar 2021', 'Mar 2022', 'Mar 2023', 'Mar 2024']} />
+      <TableSection title="Quarterly Results" data={screener?.quarterlyResults?.rows || []} cols={screener?.quarterlyResults?.headers || []} />
+      <TableSection title="Profit & Loss" data={screener?.profitAndLoss?.rows || []} cols={screener?.profitAndLoss?.headers || []} />
+      <TableSection title="Balance Sheet" data={screener?.balanceSheet?.rows || []} cols={screener?.balanceSheet?.headers || []} />
 
       {/* Recent News */}
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="glass-card p-6 mt-6">
