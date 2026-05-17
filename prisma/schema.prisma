@@ -45,6 +45,7 @@ model User {
   goals          UserGoal[]
   subscription   Subscription?
   brokerAuthStates BrokerAuthState[]
+  bookmarkedNews   UserBookmarkedNews[]
 
   @@map("users")
 }
