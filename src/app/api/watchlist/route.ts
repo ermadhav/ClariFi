@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     }
 
     // Fetch real-time data for these symbols from Yahoo Finance
-    const symbols = watchlist.stocks.map(s => s.symbol + '.NS');
+    const symbols = watchlist.stocks.map(s => s.symbol); // e.g. "RELIANCE"
     let stocksData = [];
 
     if (symbols.length > 0) {
