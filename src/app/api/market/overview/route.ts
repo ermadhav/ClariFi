@@ -143,23 +143,55 @@ export async function GET() {
       return p ? { pair: p.name, value: parseFloat(p.value.toFixed(2)), change: p.changePercent } : null;
     }).filter(Boolean);
 
-    // 6. Movers
+    // 6. Movers (Yahoo Fallback)
     const moversPool = MOVER_SYMBOLS.map(s => parsed[s]).filter(Boolean);
     const sortedMovers = [...moversPool].sort((a, b) => b.changePercent - a.changePercent);
-    const topGainers = sortedMovers.slice(0, 5).map(m => ({
+    let topGainers = sortedMovers.slice(0, 5).map(m => ({
       symbol: m.name,
       companyName: m.name,
       currentPrice: m.value,
       dayChangePercent: m.changePercent,
       sector: 'NSE'
     }));
-    const topLosers = sortedMovers.slice(-5).reverse().map(m => ({
+    let topLosers = sortedMovers.slice(-5).reverse().map(m => ({
       symbol: m.name,
       companyName: m.name,
       currentPrice: m.value,
       dayChangePercent: m.changePercent,
       sector: 'NSE'
     }));
+
+    // Override with official NSE data if possible
+    try {
+      const nseBaseRes = await fetch('https://www.nseindia.com', { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const cookies = nseBaseRes.headers.get('set-cookie') || '';
+      const [gRes, lRes] = await Promise.all([
+        fetch('https://www.nseindia.com/api/live-analysis-variations?index=gainers', {
+          headers: { 'Cookie': cookies, 'User-Agent': 'Mozilla/5.0' }
+        }),
+        fetch('https://www.nseindia.com/api/live-analysis-variations?index=loosers', {
+          headers: { 'Cookie': cookies, 'User-Agent': 'Mozilla/5.0' }
+        })
+      ]);
+
+      if (gRes.ok && lRes.ok) {
+        const gData = await gRes.json();
+        const lData = await lRes.json();
+
+        const mapNse = (d: any) => ({
+          symbol: d.symbol,
+          companyName: d.symbol,
+          currentPrice: d.ltp,
+          dayChangePercent: d.perChange,
+          sector: 'NSE'
+        });
+
+        if (gData.NIFTY?.data?.length > 0) topGainers = gData.NIFTY.data.slice(0, 5).map(mapNse);
+        if (lData.NIFTY?.data?.length > 0) topLosers = lData.NIFTY.data.slice(0, 5).map(mapNse);
+      }
+    } catch (e) {
+      console.log('NSE scrape failed, using Yahoo movers');
+    }
 
     return NextResponse.json({
       indices,
