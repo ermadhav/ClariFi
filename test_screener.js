@@ -1,4 +1,3 @@
-const fetch = require('node-fetch'); // NextJS uses fetch globally, node uses global fetch in >=18
 async function test() {
   const r = await fetch('https://www.screener.in/company/RELIANCE/consolidated/');
   const html = await r.text();
