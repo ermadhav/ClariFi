@@ -530,3 +530,57 @@ enum GoalType {
   HOUSE
   EMERGENCY_FUND
 }
+
+// ============================================
+// NEWS & INSIGHTS MODELS
+// ============================================
+
+model News {
+  id              String   @id @default(uuid())
+  headline        String
+  snippet         String?
+  fullContent     String?
+  articleUrl      String
+  source          String
+  sourceLogoUrl   String?
+  thumbnailUrl    String?
+  publishedAt     DateTime
+  sentiment       String? // "positive", "negative", "neutral"
+  category        String? // "company", "sector", "market", "economy"
+  relatedStocks   String[] // Array of symbols
+  relatedISINs    String[] // Array of ISINs
+  createdAt       DateTime @default(now())
+
+  bookmarks       UserBookmarkedNews[]
+  stockRelations  NewsStockRelation[]
+
+  @@index([publishedAt])
+  @@map("news")
+}
+
+model NewsStockRelation {
+  id             String @id @default(uuid())
+  newsId         String
+  stockSymbol    String
+  relevanceScore Float?
+
+  news           News   @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@index([stockSymbol])
+  @@index([newsId])
+  @@map("news_stock_relations")
+}
+
+model UserBookmarkedNews {
+  id           String   @id @default(uuid())
+  userId       String
+  newsId       String
+  bookmarkedAt DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  news         News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, newsId])
+  @@index([userId])
+  @@map("user_bookmarked_news")
+}
