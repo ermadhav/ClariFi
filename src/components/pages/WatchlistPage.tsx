@@ -35,13 +35,82 @@ export default function WatchlistPage() {
   const [search, setSearch] = useState('');
   const { setActivePage } = useAppStore();
 
-  const stocks = activeTab === 'holdings'
-    ? mockHoldings.map((h) => ({ symbol: h.symbol, companyName: h.companyName, currentPrice: h.currentPrice, dayChange: h.dayChange, dayChangePercent: h.dayChangePercent, sector: h.sector, marketCap: h.marketCap, pe: h.pe, sparklineData: Array.from({ length: 20 }, (_, i) => h.currentPrice + (Math.random() - 0.5) * h.currentPrice * 0.02), high52w: h.high52w, low52w: h.low52w }))
-    : mockWatchlistStocks;
+  const [holdings, setHoldings] = useState<any[]>([]);
+  const [watchlistStocks, setWatchlistStocks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [holdingsRes, watchlistRes] = await Promise.all([
+        fetch('/api/holdings'),
+        fetch('/api/watchlist')
+      ]);
+      
+      if (holdingsRes.ok) {
+        const hData = await holdingsRes.json();
+        const mappedHoldings = (hData.holdings || []).map((h: any) => ({
+          symbol: h.symbol || h.stockSymbol?.split(':')[1] || 'UNKNOWN',
+          companyName: h.companyName,
+          currentPrice: h.currentPrice,
+          dayChange: h.dayChange,
+          dayChangePercent: h.dayChangePercent,
+          sector: h.sector || 'Uncategorized',
+          marketCap: h.marketCap,
+          pe: h.pe || 0,
+          sparklineData: Array.from({ length: 20 }, (_, i) => h.currentPrice + (Math.random() - 0.5) * h.currentPrice * 0.02),
+          high52w: h.high52w || h.currentPrice * 1.2,
+          low52w: h.low52w || h.currentPrice * 0.8
+        }));
+        setHoldings(mappedHoldings);
+      }
+
+      if (watchlistRes.ok) {
+        const wData = await watchlistRes.json();
+        setWatchlistStocks(wData.stocks || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleAddStock = async () => {
+    if (!search.trim()) {
+      alert("Please enter a stock symbol in the search box to add (e.g., RELIANCE).");
+      return;
+    }
+    try {
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: search.trim().toUpperCase() })
+      });
+      if (res.ok) {
+        setSearch('');
+        fetchData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const stocks = activeTab === 'holdings' ? holdings : watchlistStocks;
 
   const filtered = stocks.filter((s) =>
-    s.companyName.toLowerCase().includes(search.toLowerCase()) || s.symbol.toLowerCase().includes(search.toLowerCase())
+    s.companyName?.toLowerCase().includes(search.toLowerCase()) || s.symbol?.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (loading) {
+    return <div className="min-h-[50vh] flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+    </div>;
+  }
 
   return (
     <div className="space-y-6 animate-in">
@@ -60,7 +129,7 @@ export default function WatchlistPage() {
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stocks..." className="input-field pl-9 py-1.5 text-xs w-48" />
           </div>
-          <button className="btn-primary text-xs py-1.5"><Plus className="w-3.5 h-3.5" /> Add Stock</button>
+          <button onClick={handleAddStock} className="btn-primary text-xs py-1.5"><Plus className="w-3.5 h-3.5" /> Add Stock</button>
         </div>
       </div>
 
@@ -131,6 +200,11 @@ export default function WatchlistPage() {
             </motion.div>
           );
         })}
+        {filtered.length === 0 && (
+          <div className="text-center py-12 text-sm text-muted-foreground">
+            No stocks found. {activeTab !== 'holdings' && "Type a symbol in the search box and click 'Add Stock'."}
+          </div>
+        )}
       </div>
     </div>
   );
