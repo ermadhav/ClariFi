@@ -41,7 +41,6 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
   const { setActivePage } = useAppStore();
   const [stock, setStock] = useState<any>(null);
   const [screener, setScreener] = useState<any>(null);
-  const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartPeriod, setChartPeriod] = useState('1Yr');
   const [inWatchlist, setInWatchlist] = useState(false);
@@ -55,15 +54,13 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [quoteRes, screenerRes, newsRes] = await Promise.all([
+        const [quoteRes, screenerRes] = await Promise.all([
           fetch(`/api/stocks/${symbol}?range=${rangeMap[chartPeriod]}`),
-          fetch(`/api/stocks/${symbol}/screener`),
-          fetch(`/api/stocks/${symbol}/news`)
+          fetch(`/api/stocks/${symbol}/screener`)
         ]);
         
         if (quoteRes.ok) setStock(await quoteRes.json());
         if (screenerRes.ok) setScreener(await screenerRes.json());
-        if (newsRes.ok) setNews(await newsRes.json());
       } catch (err) {
         console.error(err);
       } finally {
@@ -270,25 +267,6 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
       <TableSection title="Quarterly Results" data={screener?.quarterlyResults?.rows || []} cols={screener?.quarterlyResults?.headers || []} />
       <TableSection title="Profit & Loss" data={screener?.profitAndLoss?.rows || []} cols={screener?.profitAndLoss?.headers || []} />
       <TableSection title="Balance Sheet" data={screener?.balanceSheet?.rows || []} cols={screener?.balanceSheet?.headers || []} />
-
-      {/* Recent News */}
-      {news.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="glass-card p-6 mt-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Recent News</h2>
-          <div className="space-y-4">
-            {news.map((n, i) => (
-              <div key={i} className="border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1 block">
-                  {new Date(n.pubDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} • {n.source['#text'] || n.source || 'News'}
-                </span>
-                <a href={n.link} target="_blank" rel="noreferrer" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 leading-snug">
-                  {n.title.replace(/ - [^-]+$/, '')}
-                </a>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
 
     </div>
   );

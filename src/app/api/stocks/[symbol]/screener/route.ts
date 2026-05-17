@@ -11,13 +11,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ symb
       symbol = symbol.split('.')[0];
     }
 
-    const url = `https://www.screener.in/company/${symbol}/`;
-    console.log('Fetching Screener data for:', url);
-    const res = await fetch(url, {
+    // Try fetching consolidated first, as it's the standard for financial analysis
+    let url = `https://www.screener.in/company/${symbol}/consolidated/`;
+    let res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     });
+
+    // If consolidated doesn't exist, fallback to standalone
+    if (!res.ok) {
+      url = `https://www.screener.in/company/${symbol}/`;
+      res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+    }
 
     if (!res.ok) {
       return NextResponse.json({ error: 'Failed to fetch screener data' }, { status: res.status });
@@ -61,7 +71,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ symb
         $(el).find('td').each((j, td) => {
           let val = $(td).text().trim();
           if (j === 0) {
-            rowData.metric = val;
+            // Clean up weird characters and plus signs
+            rowData.metric = val.replace('+', '').replace(/[^\x20-\x7E]/g, '').trim();
           } else {
             const headKey = headers[j] || `y${j}`;
             // Convert to number if possible, removing commas
