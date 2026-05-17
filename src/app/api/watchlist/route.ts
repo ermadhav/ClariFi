@@ -1,21 +1,32 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getDemoUser } from '@/lib/auth';
+import { auth } from '@/lib/auth';
 
 export async function GET(request: Request) {
   try {
-    const user = await getDemoUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await auth();
+    let userId = session?.user?.id;
+    if (!userId && process.env.NODE_ENV === 'development') {
+      let defaultUser = await prisma.user.findFirst();
+      if (!defaultUser) {
+        defaultUser = await prisma.user.create({ data: { name: 'Demo User', email: 'demo@clarifi.app' }});
+      }
+      userId = defaultUser.id;
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     let watchlist = await prisma.watchlist.findFirst({
-      where: { userId: user.id },
+      where: { userId: userId },
       include: { stocks: true },
     });
 
     if (!watchlist) {
       watchlist = await prisma.watchlist.create({
         data: {
-          userId: user.id,
+          userId: userId,
           name: 'Keep an Eye',
         },
         include: { stocks: true }
@@ -70,19 +81,30 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getDemoUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await auth();
+    let userId = session?.user?.id;
+    if (!userId && process.env.NODE_ENV === 'development') {
+      let defaultUser = await prisma.user.findFirst();
+      if (!defaultUser) {
+        defaultUser = await prisma.user.create({ data: { name: 'Demo User', email: 'demo@clarifi.app' }});
+      }
+      userId = defaultUser.id;
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { symbol } = await request.json();
     if (!symbol) return NextResponse.json({ error: 'Symbol required' }, { status: 400 });
 
     let watchlist = await prisma.watchlist.findFirst({
-      where: { userId: user.id },
+      where: { userId: userId },
     });
 
     if (!watchlist) {
       watchlist = await prisma.watchlist.create({
-        data: { userId: user.id, name: 'Keep an Eye' },
+        data: { userId: userId, name: 'Keep an Eye' },
       });
     }
 
