@@ -132,7 +132,9 @@ export default function DashboardPage() {
                   {formatPercent(s.stock.change ?? s.stock.pnlPercent)}
                 </div>
               </>
-            ) : null}
+            ) : (
+              <div className="text-sm text-muted-foreground mt-2">No positive returns yet.</div>
+            )}
           </motion.div>
         ))}
       </div>
@@ -272,26 +274,30 @@ export default function DashboardPage() {
             <button onClick={() => setActivePage('news')} className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">View All →</button>
           </div>
           <div className="space-y-3">
-            {mockNews.slice(0, 4).map((n) => (
-              <div key={n.id} className="flex gap-3 p-3 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer group">
-                <div className={`w-1 rounded-full flex-shrink-0 ${n.sentiment === 'positive' ? 'bg-profit' : n.sentiment === 'negative' ? 'bg-loss' : 'bg-muted-foreground'}`} />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-indigo-400 transition-colors">{n.headline}</h3>
-                  <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                    <span>{n.source}</span>
-                    <span>·</span>
-                    <span>{timeAgo(n.timestamp)}</span>
-                    {n.relatedStocks.length > 0 && (
-                      <>
-                        <span>·</span>
-                        <span className="badge badge-info">{n.relatedStocks[0]}</span>
-                      </>
-                    )}
+            {mockNews.filter(n => n.relatedStocks.some(stock => holdings.some(h => (h.symbol || h.stockSymbol || '').includes(stock)))).slice(0, 4).length > 0 ? (
+              mockNews.filter(n => n.relatedStocks.some(stock => holdings.some(h => (h.symbol || h.stockSymbol || '').includes(stock)))).slice(0, 4).map((n) => (
+                <div key={n.id} className="flex gap-3 p-3 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer group">
+                  <div className={`w-1 rounded-full flex-shrink-0 ${n.sentiment === 'positive' ? 'bg-profit' : n.sentiment === 'negative' ? 'bg-loss' : 'bg-muted-foreground'}`} />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-indigo-400 transition-colors">{n.headline}</h3>
+                    <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                      <span>{n.source}</span>
+                      <span>·</span>
+                      <span>{timeAgo(n.timestamp)}</span>
+                      {n.relatedStocks.length > 0 && (
+                        <>
+                          <span>·</span>
+                          <span className="badge badge-info">{n.relatedStocks[0]}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
+                  <Bookmark className={`w-3.5 h-3.5 flex-shrink-0 mt-1 ${n.bookmarked ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground opacity-0 group-hover:opacity-100'} transition-opacity`} />
                 </div>
-                <Bookmark className={`w-3.5 h-3.5 flex-shrink-0 mt-1 ${n.bookmarked ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground opacity-0 group-hover:opacity-100'} transition-opacity`} />
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="text-sm text-muted-foreground text-center py-6">No recent news for your holdings.</div>
+            )}
           </div>
         </motion.div>
 
@@ -319,18 +325,7 @@ export default function DashboardPage() {
           <div className="glass-card p-5">
             <h2 className="text-sm font-semibold text-foreground mb-3">Recent Activity</h2>
             <div className="space-y-3">
-              {[
-                { text: 'Bought 15 shares of RELIANCE', type: 'buy', time: '2 days ago' },
-                { text: 'Dividend received from TCS: ₹420', type: 'dividend', time: '5 days ago' },
-                { text: 'Portfolio crossed ₹5,00,000 milestone! 🎉', type: 'milestone', time: '1 week ago' },
-                { text: 'Price alert triggered: WIPRO fell 5%', type: 'alert', time: '2 weeks ago' },
-              ].map((a, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm">
-                  <div className={`w-2 h-2 rounded-full ${a.type === 'buy' ? 'bg-profit' : a.type === 'dividend' ? 'bg-amber-400' : a.type === 'milestone' ? 'bg-indigo-400' : 'bg-loss'}`} />
-                  <span className="text-foreground flex-1">{a.text}</span>
-                  <span className="text-xs text-muted-foreground">{a.time}</span>
-                </div>
-              ))}
+              <div className="text-sm text-muted-foreground text-center py-6">No recent activity.</div>
             </div>
           </div>
         </motion.div>

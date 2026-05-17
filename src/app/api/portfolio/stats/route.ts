@@ -64,7 +64,13 @@ export async function GET() {
     const diversificationScore = Math.min(100, sectorCount * 12 + (concentrationRisk < 20 ? 20 : 0));
 
     // Best performer
-    const bestPerformer = holdings.reduce((best, h) => h.pnlPercent > best.pnlPercent ? h : best, holdings[0]);
+    let bestPerformer = null;
+    if (holdings.length > 0) {
+      const top = holdings.reduce((best, h) => h.pnlPercent > best.pnlPercent ? h : best, holdings[0]);
+      if (top.pnlPercent > 0) {
+        bestPerformer = { symbol: top.symbol || top.stockSymbol?.split(':')[1] || 'UNKNOWN', pnlPercent: top.pnlPercent };
+      }
+    }
 
     return NextResponse.json({
       hasData: true,
@@ -82,7 +88,7 @@ export async function GET() {
         topLosers: topLosers.map((h) => ({ symbol: h.symbol || h.stockSymbol?.split(':')[1] || 'UNKNOWN', companyName: h.companyName, pnlPercent: h.pnlPercent })),
         concentrationRisk,
         diversificationScore,
-        bestPerformer: { symbol: bestPerformer.symbol || bestPerformer.stockSymbol?.split(':')[1] || 'UNKNOWN', pnlPercent: bestPerformer.pnlPercent },
+        bestPerformer,
       },
     });
   } catch (error) {
