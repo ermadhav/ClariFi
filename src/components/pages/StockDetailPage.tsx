@@ -88,21 +88,6 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
     fetchData();
   }, [symbol, chartPeriod]);
 
-  if (loading && !stock) return (
-    <div className="flex h-[60vh] items-center justify-center">
-      <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-    </div>
-  );
-
-  if (!stock || stock.error) return (
-    <div className="text-center py-20 glass-card">
-      <p className="text-muted-foreground">Stock details not found.</p>
-      <button onClick={() => setActivePage('dashboard')} className="btn-primary text-xs mt-4">Go Back</button>
-    </div>
-  );
-
-  const cleanSymbol = stock.symbol.replace('.NS', '').replace('.BO', '');
-  
   const chartData = useMemo(() => {
     if (!stock?.historical) return [];
     const data = [...stock.historical];
@@ -121,6 +106,21 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
     return data;
   }, [stock?.historical]);
 
+  if (loading && !stock) return (
+    <div className="flex h-[60vh] items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+    </div>
+  );
+
+  if (!stock || stock.error) return (
+    <div className="text-center py-20 glass-card">
+      <p className="text-muted-foreground">Stock details not found.</p>
+      <button onClick={() => setActivePage('dashboard')} className="btn-primary text-xs mt-4">Go Back</button>
+    </div>
+  );
+
+  const cleanSymbol = stock.symbol.replace('.NS', '').replace('.BO', '');
+  
   // Check if stock is in any watchlist
   const isInWatchlist = (w: any) => w.stocks?.some((s: any) => s.symbol === cleanSymbol);
   const isFollowing = watchlists.some(isInWatchlist);
