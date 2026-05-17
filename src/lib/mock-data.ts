@@ -90,7 +90,7 @@ export const mockAlerts: Alert[] = [
   { id: 'a4', symbol: 'TCS', companyName: 'TCS', type: '52W_HIGH', condition: 'Reaches 52-week high', isActive: true, triggered: true, triggeredAt: '2025-05-10', createdAt: '2024-12-01' },
 ];
 
-export function generatePortfolioChartData(period: string) {
+export function generatePortfolioChartData(period: string, baseValue: number = 320000) {
   const points: { date: string; value: number; benchmark: number }[] = [];
   let days = 30;
   if (period === '1D') days = 1;
@@ -103,8 +103,9 @@ export function generatePortfolioChartData(period: string) {
   else if (period === '5Y') days = 1825;
   else days = 2500;
 
-  let value = 320000;
-  let bench = 320000;
+  let value = baseValue * 0.85; // Start a bit lower
+  if (baseValue === 0) value = 10000;
+  let bench = value;
   const step = days <= 7 ? 1 : days <= 90 ? 1 : Math.floor(days / 200);
 
   for (let i = 0; i < Math.min(days, 250); i++) {
@@ -118,6 +119,17 @@ export function generatePortfolioChartData(period: string) {
       benchmark: Math.round(bench),
     });
   }
+  
+  // Adjust the entire curve so the final point exactly matches baseValue
+  if (points.length > 0 && baseValue > 0) {
+    const finalVal = points[points.length - 1].value;
+    const ratio = baseValue / finalVal;
+    points.forEach(p => {
+      p.value = Math.round(p.value * ratio);
+      p.benchmark = Math.round(p.benchmark * ratio);
+    });
+  }
+
   return points;
 }
 

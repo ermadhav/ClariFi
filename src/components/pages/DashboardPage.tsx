@@ -66,8 +66,8 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    setChartData(generatePortfolioChartData(chartPeriod));
-  }, [chartPeriod]);
+    setChartData(generatePortfolioChartData(chartPeriod, portfolioStats?.totalValue || 0));
+  }, [chartPeriod, portfolioStats]);
 
   if (loading) {
     return <div className="min-h-[50vh] flex items-center justify-center">
@@ -166,7 +166,7 @@ export default function DashboardPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
               <XAxis dataKey="date" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
               <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`} />
-              <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px' }} labelStyle={{ color: '#a1a1aa' }} formatter={(v: number) => [formatCurrency(v), '']} />
+              <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px', color: '#e4e4e7' }} itemStyle={{ color: '#e4e4e7' }} formatter={(v: number) => [formatCurrency(v), '']} />
               <Area type="monotone" dataKey="benchmark" stroke="#a78bfa" strokeWidth={1.5} fill="url(#colorBench)" strokeDasharray="4 4" name="Nifty 50" />
               <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} fill="url(#colorValue)" name="Portfolio" />
             </AreaChart>
@@ -187,7 +187,7 @@ export default function DashboardPage() {
                   <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px' }} formatter={(v: number) => [formatCurrency(v), '']} />
+              <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px', color: '#e4e4e7' }} itemStyle={{ color: '#e4e4e7' }} formatter={(v: number) => [formatCurrency(v), '']} />
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-2 mt-2">

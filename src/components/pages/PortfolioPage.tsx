@@ -94,13 +94,13 @@ export default function PortfolioPage() {
                 <Pie data={data} cx="50%" cy="50%" innerRadius={80} outerRadius={130} paddingAngle={3} dataKey="value" stroke="none" label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(1)}%`}>
                   {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px' }} formatter={(v: number) => [formatCurrency(v), 'Value']} />
+                <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px', color: '#e4e4e7' }} itemStyle={{ color: '#e4e4e7' }} formatter={(v: number) => [formatCurrency(v), 'Value']} />
               </PieChart>
             ) : chartType === 'bar' ? (
               <BarChart data={data} layout="vertical">
                 <XAxis type="number" tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(v: number) => formatCurrency(v, true)} />
                 <YAxis type="category" dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 11 }} width={90} />
-                <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px' }} formatter={(v: number) => [formatCurrency(v), 'Value']} />
+                <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px', color: '#e4e4e7' }} itemStyle={{ color: '#e4e4e7' }} formatter={(v: number) => [formatCurrency(v), 'Value']} />
                 <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                   {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Bar>
