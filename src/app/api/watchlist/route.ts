@@ -178,7 +178,7 @@ export async function DELETE(request: Request) {
     const symbol = searchParams.get('symbol');
     const watchlistId = searchParams.get('watchlistId');
     
-    if (!symbol || !watchlistId) return NextResponse.json({ error: 'Symbol and watchlistId required' }, { status: 400 });
+    if (!watchlistId) return NextResponse.json({ error: 'watchlistId required' }, { status: 400 });
 
     // Verify ownership
     const watchlist = await prisma.watchlist.findUnique({ where: { id: watchlistId } });
@@ -186,6 +186,18 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (!symbol) {
+      // Delete the entire watchlist and its stocks
+      await prisma.watchlistStock.deleteMany({
+        where: { watchlistId: watchlistId }
+      });
+      await prisma.watchlist.delete({
+        where: { id: watchlistId }
+      });
+      return NextResponse.json({ success: true, message: 'Watchlist deleted' });
+    }
+
+    // Delete a specific stock
     await prisma.watchlistStock.deleteMany({
       where: {
         watchlistId: watchlistId,
