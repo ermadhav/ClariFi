@@ -54,7 +54,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ sect
       return NextResponse.json({ news: [] });
     }
 
-    const encodedQuery = encodeURIComponent(query + ' stock news India');
+    // Add time and source constraints to get high quality recent news
+    const timeFilter = 'when:7d'; // Last 7 days only
+    const sourceFilter = '(site:moneycontrol.com OR site:economictimes.indiatimes.com OR site:livemint.com OR site:ndtvprofit.com OR site:cnbctv18.com)';
+    
+    // Final query combining keywords, time, and sources
+    const finalQuery = `${query} ${timeFilter} ${sourceFilter}`;
+    const encodedQuery = encodeURIComponent(finalQuery);
     const rssUrl = `https://news.google.com/rss/search?q=${encodedQuery}&hl=en-IN&gl=IN&ceid=IN:en`;
 
     const res = await fetch(rssUrl, {
