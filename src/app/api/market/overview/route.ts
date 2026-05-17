@@ -46,13 +46,24 @@ const MOVER_SYMBOLS = [
 export async function GET() {
   try {
     const allSymbols = [...Object.keys(SYMBOL_MAP), ...MOVER_SYMBOLS];
-    const url = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${allSymbols.join(',')}&range=1d&interval=15m`;
     
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Yahoo API failed');
-    
-    const data = await res.json();
-    const responses = data.spark?.result || [];
+    // Yahoo Spark API accepts max 20 symbols per request
+    const chunkSize = 20;
+    const chunks = [];
+    for (let i = 0; i < allSymbols.length; i += chunkSize) {
+      chunks.push(allSymbols.slice(i, i + chunkSize));
+    }
+
+    const fetchChunk = async (chunk: string[]) => {
+      const url = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${chunk.join(',')}&range=1d&interval=15m`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.spark?.result || [];
+    };
+
+    const chunkResults = await Promise.all(chunks.map(fetchChunk));
+    const responses = chunkResults.flat();
 
     const parsed: Record<string, any> = {};
 
