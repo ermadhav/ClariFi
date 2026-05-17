@@ -357,16 +357,17 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
               contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px' }}
               labelFormatter={(label) => new Date(label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               formatter={(value: any, name: any) => {
-                if (name === 'Volume') return [(value / 1000).toFixed(0) + 'k', 'Volume'];
-                if (name === 'dma50') return [`₹${Number(value).toFixed(2)}`, '50 DMA'];
-                if (name === 'dma200') return [`₹${Number(value).toFixed(2)}`, '200 DMA'];
-                return [`₹${Number(value).toFixed(2)}`, 'Price'];
+                if (name === 'volume' || name === 'Volume') return [(value / 1000).toFixed(0) + 'k', 'Volume'];
+                if (name === 'dma50') return [`₹${Number(value).toFixed(2)}`, '50 SMA'];
+                if (name === 'dma200') return [`₹${Number(value).toFixed(2)}`, '200 SMA'];
+                if (name === 'close' || name === 'Price') return [`₹${Number(value).toFixed(2)}`, 'Price'];
+                return [`₹${Number(value).toFixed(2)}`, name];
               }}
             />
-            {showVolume && <Bar yAxisId="vol" dataKey="volume" fill="#4f46e5" opacity={0.3} maxBarSize={10} />}
-            {showPrice && <Area yAxisId="price" type="monotone" dataKey="close" stroke="#818cf8" strokeWidth={2} fillOpacity={0} />}
-            {show50DMA && <Line yAxisId="price" type="monotone" dot={false} dataKey="dma50" stroke="#eab308" strokeWidth={1.5} />}
-            {show200DMA && <Line yAxisId="price" type="monotone" dot={false} dataKey="dma200" stroke="#ec4899" strokeWidth={1.5} />}
+            {showVolume && <Bar yAxisId="vol" dataKey="volume" name="Volume" fill="#4f46e5" opacity={0.3} maxBarSize={10} />}
+            {showPrice && <Area yAxisId="price" type="monotone" dataKey="close" name="Price" stroke="#818cf8" strokeWidth={2} fillOpacity={0} />}
+            {show50DMA && <Line yAxisId="price" type="monotone" dot={false} dataKey="dma50" name="50 SMA" stroke="#eab308" strokeWidth={1.5} />}
+            {show200DMA && <Line yAxisId="price" type="monotone" dot={false} dataKey="dma200" name="200 SMA" stroke="#ec4899" strokeWidth={1.5} />}
           </ComposedChart>
         </ResponsiveContainer>
         
@@ -375,10 +376,10 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
             <input type="checkbox" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} className="accent-indigo-500" /> Price on NSE
           </label>
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-            <input type="checkbox" checked={show50DMA} onChange={(e) => setShow50DMA(e.target.checked)} className="accent-indigo-500" /> 50 DMA
+            <input type="checkbox" checked={show50DMA} onChange={(e) => setShow50DMA(e.target.checked)} className="accent-indigo-500" /> 50 SMA
           </label>
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-            <input type="checkbox" checked={show200DMA} onChange={(e) => setShow200DMA(e.target.checked)} className="accent-indigo-500" /> 200 DMA
+            <input type="checkbox" checked={show200DMA} onChange={(e) => setShow200DMA(e.target.checked)} className="accent-indigo-500" /> 200 SMA
           </label>
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
             <input type="checkbox" checked={showVolume} onChange={(e) => setShowVolume(e.target.checked)} className="accent-indigo-500" /> Volume
