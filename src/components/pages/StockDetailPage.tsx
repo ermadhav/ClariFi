@@ -89,21 +89,7 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
   }, [symbol, chartPeriod]);
 
   const chartData = useMemo(() => {
-    if (!stock?.historical) return [];
-    const data = [...stock.historical];
-    for (let i = 0; i < data.length; i++) {
-      if (i >= 49) {
-        let sum = 0;
-        for (let j = i - 49; j <= i; j++) sum += data[j].close;
-        data[i].dma50 = sum / 50;
-      }
-      if (i >= 199) {
-        let sum = 0;
-        for (let j = i - 199; j <= i; j++) sum += data[j].close;
-        data[i].dma200 = sum / 200;
-      }
-    }
-    return data;
+    return stock?.historical || [];
   }, [stock?.historical]);
 
   if (loading && !stock) return (
