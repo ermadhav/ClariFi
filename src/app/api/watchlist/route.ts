@@ -154,7 +154,7 @@ export async function DELETE(request: Request) {
     let userId = session?.user?.id;
     if (!userId && process.env.NODE_ENV === 'development') {
       let defaultUser = await prisma.user.findFirst();
-      if (!defaultUser) userId = defaultUser?.id;
+      if (defaultUser) userId = defaultUser.id;
     }
 
     if (!userId) {
