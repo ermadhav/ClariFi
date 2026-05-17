@@ -41,6 +41,7 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
   const { setActivePage } = useAppStore();
   const [stock, setStock] = useState<any>(null);
   const [screener, setScreener] = useState<any>(null);
+  const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartPeriod, setChartPeriod] = useState('1Yr');
   const [inWatchlist, setInWatchlist] = useState(false);
@@ -54,13 +55,15 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [quoteRes, screenerRes] = await Promise.all([
+        const [quoteRes, screenerRes, newsRes] = await Promise.all([
           fetch(`/api/stocks/${symbol}?range=${rangeMap[chartPeriod]}`),
-          fetch(`/api/stocks/${symbol}/screener`)
+          fetch(`/api/stocks/${symbol}/screener`),
+          fetch(`/api/stocks/${symbol}/news`)
         ]);
         
         if (quoteRes.ok) setStock(await quoteRes.json());
         if (screenerRes.ok) setScreener(await screenerRes.json());
+        if (newsRes.ok) setNews(await newsRes.json());
       } catch (err) {
         console.error(err);
       } finally {
@@ -191,15 +194,20 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
           </p>
           
           <h3 className="text-sm font-bold text-foreground mt-6 mb-2">KEY POINTS</h3>
+          <style dangerouslySetInnerHTML={{ __html: `
+            .screener-key-points p { margin-bottom: 0.5rem; }
+            .screener-key-points ul { list-style-type: disc; padding-left: 1rem; margin-bottom: 0.5rem; }
+            .screener-key-points strong { color: #fff; font-weight: 600; }
+          `}} />
           <div 
-            className={`text-xs text-muted-foreground leading-relaxed prose prose-invert max-w-none ${showFullAbout ? '' : 'line-clamp-6'}`}
+            className={`screener-key-points text-xs text-muted-foreground leading-relaxed transition-all duration-300 ${showFullAbout ? '' : 'line-clamp-6'}`}
             dangerouslySetInnerHTML={{ __html: screener?.keyPoints || 'Business Segments data available on full expansion.' }}
           />
           <button 
             onClick={() => setShowFullAbout(!showFullAbout)}
-            className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 mt-4"
+            className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 mt-4 uppercase tracking-wider"
           >
-            {showFullAbout ? 'READ LESS <' : 'READ MORE >'}
+            {showFullAbout ? 'Read Less <' : 'Read More >'}
           </button>
         </div>
       </div>
@@ -264,23 +272,23 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
       <TableSection title="Balance Sheet" data={screener?.balanceSheet?.rows || []} cols={screener?.balanceSheet?.headers || []} />
 
       {/* Recent News */}
-      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="glass-card p-6 mt-6">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Recent News</h2>
-        <div className="space-y-4">
-          <div className="border-b border-white/5 pb-4">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1 block">2 Hours Ago • Business Standard</span>
-            <a href="#" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 leading-snug">{stock.companyName} signs major strategic partnership to expand footprint in emerging markets</a>
+      {news.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="glass-card p-6 mt-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Recent News</h2>
+          <div className="space-y-4">
+            {news.map((n, i) => (
+              <div key={i} className="border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1 block">
+                  {new Date(n.pubDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} • {n.source['#text'] || n.source || 'News'}
+                </span>
+                <a href={n.link} target="_blank" rel="noreferrer" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 leading-snug">
+                  {n.title.replace(/ - [^-]+$/, '')}
+                </a>
+              </div>
+            ))}
           </div>
-          <div className="border-b border-white/5 pb-4">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1 block">1 Day Ago • Mint</span>
-            <a href="#" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 leading-snug">Q4 Earnings Preview: {cleanSymbol} expected to report strong double-digit revenue growth</a>
-          </div>
-          <div className="pb-2">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1 block">3 Days Ago • Economic Times</span>
-            <a href="#" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 leading-snug">Promoters of {stock.companyName} increase stake by 1.5% through open market purchases</a>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
     </div>
   );
