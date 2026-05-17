@@ -17,11 +17,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ symb
         else interval = '1mo'; // 10y and max
     }
 
-    // append .NS if not present and not an index
-    const fetchSymbol = (symbol.includes('.') || symbol.startsWith('^')) ? symbol : `${symbol}.NS`;
+    // Determine the padded fetch range to ensure enough data for 200 SMA
+    let fetchRange = range;
+    if (interval === '1d') {
+      fetchRange = ['1y', 'ytd', '6mo', '3mo', '1mo', '5d', '1d'].includes(range) ? '2y' : '2y';
+    } else if (interval === '1wk') {
+      fetchRange = '10y';
+    } else {
+      fetchRange = 'max';
+    }
     
-    // Always fetch max range so we have enough historical data to calculate the 200 SMA accurately
-    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?range=max&interval=${interval}`;
+    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?range=${fetchRange}&interval=${interval}`;
     const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${fetchSymbol}`;
     
     const [chartRes, quoteRes] = await Promise.all([
