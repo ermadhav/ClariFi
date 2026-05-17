@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { mockWatchlistStocks, mockHoldings } from '@/lib/mock-data';
 import { formatCurrency, formatPercent } from '@/lib/utils';
-import { Plus, Star, Bell, BarChart3, Search, GripVertical, Trash2, Eye } from 'lucide-react';
+import { Plus, Star, Bell, BarChart3, Search, GripVertical, Trash2, Eye, X } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { useAppStore } from '@/lib/store';
 
@@ -38,6 +38,11 @@ export default function WatchlistPage() {
   const [holdings, setHoldings] = useState<any[]>([]);
   const [watchlistStocks, setWatchlistStocks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [modalSearch, setModalSearch] = useState('');
+  const [modalResults, setModalResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -80,19 +85,53 @@ export default function WatchlistPage() {
     fetchData();
   }, []);
 
-  const handleAddStock = async () => {
-    if (!search.trim()) {
-      alert("Please enter a stock symbol in the search box to add (e.g., RELIANCE).");
+  React.useEffect(() => {
+    if (!modalSearch.trim()) {
+      setModalResults([]);
       return;
     }
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/market/search?q=${encodeURIComponent(modalSearch)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setModalResults(data.results || []);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [modalSearch]);
+
+  const handleAddStock = async (symbol: string) => {
+    if (!symbol) return;
+    setIsSearchModalOpen(false);
+    setModalSearch('');
     try {
       const res = await fetch('/api/watchlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: search.trim().toUpperCase() })
+        body: JSON.stringify({ symbol: symbol })
       });
       if (res.ok) {
-        setSearch('');
+        fetchData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRemoveStock = async (symbol: string) => {
+    if (!confirm(`Are you sure you want to remove ${symbol} from the watchlist?`)) return;
+    try {
+      const res = await fetch(`/api/watchlist?symbol=${encodeURIComponent(symbol)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
         fetchData();
       }
     } catch (e) {
@@ -129,7 +168,7 @@ export default function WatchlistPage() {
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stocks..." className="input-field pl-9 py-1.5 text-xs w-48" />
           </div>
-          <button onClick={handleAddStock} className="btn-primary text-xs py-1.5"><Plus className="w-3.5 h-3.5" /> Add Stock</button>
+          <button onClick={() => setIsSearchModalOpen(true)} className="btn-primary text-xs py-1.5"><Plus className="w-3.5 h-3.5" /> Add Stock</button>
         </div>
       </div>
 
@@ -193,6 +232,11 @@ export default function WatchlistPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {activeTab !== 'holdings' && (
+                    <button onClick={() => handleRemoveStock(s.symbol)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors group">
+                      <Trash2 className="w-3.5 h-3.5 text-muted-foreground group-hover:text-loss transition-colors" />
+                    </button>
+                  )}
                   <button className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"><Star className="w-3.5 h-3.5 text-amber-400" /></button>
                   <button className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"><Bell className="w-3.5 h-3.5 text-muted-foreground" /></button>
                 </div>
@@ -206,6 +250,52 @@ export default function WatchlistPage() {
           </div>
         )}
       </div>
+
+      {/* Add Stock Modal */}
+      {isSearchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md bg-[#0a0a0d] border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+          >
+            <div className="p-4 border-b border-white/5 flex items-center gap-3 relative">
+              <Search className="w-5 h-5 text-muted-foreground" />
+              <input
+                autoFocus
+                value={modalSearch}
+                onChange={(e) => setModalSearch(e.target.value)}
+                placeholder="Search by company name or symbol..."
+                className="w-full bg-transparent border-none outline-none text-foreground text-sm placeholder:text-muted-foreground"
+              />
+              <button onClick={() => setIsSearchModalOpen(false)} className="absolute right-4 p-1 rounded-md hover:bg-white/10">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            
+            <div className="max-h-[300px] overflow-y-auto p-2">
+              {isSearching ? (
+                <div className="text-center p-4 text-sm text-muted-foreground">Searching...</div>
+              ) : modalResults.length > 0 ? (
+                modalResults.map(res => (
+                  <button
+                    key={res.id}
+                    onClick={() => handleAddStock(res.symbol)}
+                    className="w-full flex flex-col items-start p-3 rounded-lg hover:bg-white/5 transition-colors text-left"
+                  >
+                    <span className="font-medium text-foreground text-sm">{res.name}</span>
+                    <span className="text-xs text-muted-foreground">{res.symbol}</span>
+                  </button>
+                ))
+              ) : modalSearch.trim().length > 0 ? (
+                <div className="text-center p-4 text-sm text-muted-foreground">No stocks found.</div>
+              ) : (
+                <div className="text-center p-4 text-sm text-muted-foreground">Type a company name to begin searching.</div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
