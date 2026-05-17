@@ -164,6 +164,24 @@ export default function WatchlistPage() {
     }
   };
 
+  const handleRemoveWatchlist = async () => {
+    if (activeTab === 'holdings') return;
+    const activeWatchlist = watchlists.find(w => w.id === activeTab);
+    if (!activeWatchlist) return;
+    if (!confirm(`Are you sure you want to delete the watchlist "${activeWatchlist.name}"?`)) return;
+    try {
+      const res = await fetch(`/api/watchlist?watchlistId=${activeTab}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setActiveTab('holdings'); // fallback to holdings
+        fetchData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const activeWatchlist = watchlists.find(w => w.id === activeTab);
   const stocks = activeTab === 'holdings' ? holdings : (activeWatchlist?.stocks || []);
 
@@ -204,7 +222,14 @@ export default function WatchlistPage() {
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stocks..." className="input-field pl-9 py-1.5 text-xs w-40 sm:w-48" />
           </div>
           {activeTab !== 'holdings' && (
-            <button onClick={() => setIsSearchModalOpen(true)} className="btn-primary text-xs py-1.5 whitespace-nowrap"><Plus className="w-3.5 h-3.5" /> Add Stock</button>
+            <div className="flex items-center gap-2">
+              <button onClick={handleRemoveWatchlist} className="btn-secondary text-xs py-1.5 px-2 whitespace-nowrap text-loss hover:bg-loss/10 border-loss/20">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setIsSearchModalOpen(true)} className="btn-primary text-xs py-1.5 whitespace-nowrap">
+                <Plus className="w-3.5 h-3.5" /> Add Stock
+              </button>
+            </div>
           )}
         </div>
       </div>
