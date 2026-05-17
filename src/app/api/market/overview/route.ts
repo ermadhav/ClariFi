@@ -69,7 +69,8 @@ export async function GET() {
 
     responses.forEach((r: any) => {
       const sym = r.symbol;
-      const meta = r.meta || {};
+      const respData = r.response?.[0] || {};
+      const meta = respData.meta || {};
       const price = meta.regularMarketPrice || 0;
       const prev = meta.chartPreviousClose || meta.previousClose || price;
       const change = price - prev;
@@ -77,7 +78,7 @@ export async function GET() {
       
       let sparkline: number[] = [];
       try {
-        const closeArray = r.indicators?.quote?.[0]?.close || [];
+        const closeArray = respData.indicators?.quote?.[0]?.close || [];
         sparkline = closeArray.filter((v: number | null) => v !== null);
       } catch(e) {}
       
