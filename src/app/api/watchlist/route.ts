@@ -147,3 +147,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to add to watchlist' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await auth();
+    let userId = session?.user?.id;
+    if (!userId && process.env.NODE_ENV === 'development') {
+      let defaultUser = await prisma.user.findFirst();
+      if (!defaultUser) userId = defaultUser?.id;
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const symbol = searchParams.get('symbol');
+    
+    if (!symbol) return NextResponse.json({ error: 'Symbol required' }, { status: 400 });
+
+    let watchlist = await prisma.watchlist.findFirst({
+      where: { userId: userId },
+    });
+
+    if (watchlist) {
+      await prisma.watchlistStock.deleteMany({
+        where: {
+          watchlistId: watchlist.id,
+          symbol: symbol
+        }
+      });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Watchlist DELETE error:', error);
+    return NextResponse.json({ error: 'Failed to remove from watchlist' }, { status: 500 });
+  }
+}
