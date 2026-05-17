@@ -15,8 +15,9 @@ export async function GET(request: Request) {
     if (!res.ok) throw new Error('Screener search failed');
 
     const data = await res.json();
-    // data is like { value: [ { id, name, url } ] }
-    const results = (data.value || []).map((v: any) => {
+    
+    // data is an array: [ { id, name, url } ]
+    const results = (Array.isArray(data) ? data : []).map((v: any) => {
       // url is like "/company/RELIANCE/consolidated/"
       const symbol = v.url.split('/')[2];
       return {
