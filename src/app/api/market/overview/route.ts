@@ -36,11 +36,17 @@ const SYMBOL_MAP: Record<string, string> = {
   'GBPINR=X': 'GBP/INR',
 };
 
-// Movers pool (large Indian caps)
+// NIFTY 50 constituents for accurate gainers/losers
 const MOVER_SYMBOLS = [
   'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'ICICIBANK.NS', 'INFY.NS', 
   'ITC.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'HINDUNILVR.NS', 'BAJFINANCE.NS', 
-  'TATAMOTORS.NS', 'SUNPHARMA.NS', 'MARUTI.NS', 'ASIANPAINT.NS', 'WIPRO.NS'
+  'TATAMOTORS.NS', 'SUNPHARMA.NS', 'MARUTI.NS', 'ASIANPAINT.NS', 'WIPRO.NS',
+  'ADANIENT.NS', 'ADANIPORTS.NS', 'AXISBANK.NS', 'BAJAJ-AUTO.NS', 'BAJAJFINSV.NS',
+  'BPCL.NS', 'BRITANNIA.NS', 'CIPLA.NS', 'COALINDIA.NS', 'DIVISLAB.NS',
+  'DRREDDY.NS', 'EICHERMOT.NS', 'GRASIM.NS', 'HCLTECH.NS', 'HDFCLIFE.NS',
+  'HEROMOTOCO.NS', 'HINDALCO.NS', 'INDUSINDBK.NS', 'JSWSTEEL.NS', 'KOTAKBANK.NS',
+  'LT.NS', 'LTIM.NS', 'M&M.NS', 'NESTLEIND.NS', 'NTPC.NS', 'ONGC.NS',
+  'POWERGRID.NS', 'TATACONSUM.NS', 'TATASTEEL.NS', 'TECHM.NS', 'TITAN.NS', 'ULTRACEMCO.NS'
 ];
 
 export async function GET() {
@@ -104,14 +110,30 @@ export async function GET() {
     // 3. Global Indices
     const globalIndices = ['^DJI', '^GSPC', '^IXIC', '^FTSE', '^N225', '^HSI'].map(s => parsed[s]).filter(Boolean);
 
-    // 4. Commodities
+    // 4. Commodities (Convert to INR based on USD/INR)
+    const inrRate = parsed['INR=X']?.value || 83.5;
+    
     const commodities = ['GC=F', 'SI=F', 'CL=F'].map(s => {
       const p = parsed[s];
       if (!p) return null;
-      let formatPrice = `$${p.value.toFixed(2)}`;
-      if (s === 'GC=F') formatPrice = `$${p.value.toFixed(1)}/oz`;
-      if (s === 'SI=F') formatPrice = `$${p.value.toFixed(2)}/oz`;
-      if (s === 'CL=F') formatPrice = `$${p.value.toFixed(2)}/bbl`;
+      let formatPrice = `₹0`;
+      
+      if (s === 'GC=F') {
+        // Gold: USD/oz -> INR/10g. (1 oz = 31.1035 grams)
+        const inrPer10g = (p.value / 31.1035) * 10 * inrRate;
+        formatPrice = `₹${inrPer10g.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/10g`;
+      }
+      if (s === 'SI=F') {
+        // Silver: USD/oz -> INR/1kg
+        const inrPerKg = (p.value / 31.1035) * 1000 * inrRate;
+        formatPrice = `₹${inrPerKg.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/kg`;
+      }
+      if (s === 'CL=F') {
+        // Crude: USD/bbl -> INR/bbl
+        const inrPerBbl = p.value * inrRate;
+        formatPrice = `₹${inrPerBbl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/bbl`;
+      }
+      
       return { name: p.name, price: formatPrice, change: p.changePercent };
     }).filter(Boolean);
 
