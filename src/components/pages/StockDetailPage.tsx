@@ -3,8 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
-import { ArrowLeft, Plus, Download, Link as LinkIcon, TrendingUp, TrendingDown, Loader2, Bell, Share2 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, ComposedChart } from 'recharts';
+import { ArrowLeft, Plus, Download, Link as LinkIcon, TrendingUp, TrendingDown, Loader2, Bell, Share2, Check, X } from 'lucide-react';
+import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, ComposedChart } from 'recharts';
 
 const TableSection = ({ title, data, cols }: { title: string, data: any[], cols: string[] }) => {
   if (!data || data.length === 0) return null;
@@ -45,10 +45,28 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
   const [chartPeriod, setChartPeriod] = useState('1Yr');
   const [inWatchlist, setInWatchlist] = useState(false);
   const [showFullAbout, setShowFullAbout] = useState(false);
+  
+  // Chart toggles
+  const [showPrice, setShowPrice] = useState(true);
+  const [show50DMA, setShow50DMA] = useState(false);
+  const [show200DMA, setShow200DMA] = useState(false);
+  const [showVolume, setShowVolume] = useState(true);
+
+  // Watchlist
+  const [watchlists, setWatchlists] = useState<any[]>([]);
+  const [showWatchlistMenu, setShowWatchlistMenu] = useState(false);
+  const [newWatchlistName, setNewWatchlistName] = useState('');
 
   const rangeMap: Record<string, string> = {
     '1M': '1mo', '6M': '6mo', '1Yr': '1y', '3Yr': '3y', '5Yr': '5y', '10Yr': '10y', 'Max': 'max'
   };
+
+  useEffect(() => {
+    // Fetch user watchlists
+    fetch('/api/watchlist').then(res => res.json()).then(data => {
+      if (data.watchlists) setWatchlists(data.watchlists);
+    }).catch(console.error);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,6 +102,64 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
   );
 
   const cleanSymbol = stock.symbol.replace('.NS', '').replace('.BO', '');
+  
+  const chartData = useMemo(() => {
+    if (!stock?.historical) return [];
+    const data = [...stock.historical];
+    for (let i = 0; i < data.length; i++) {
+      if (i >= 49) {
+        let sum = 0;
+        for (let j = i - 49; j <= i; j++) sum += data[j].close;
+        data[i].dma50 = sum / 50;
+      }
+      if (i >= 199) {
+        let sum = 0;
+        for (let j = i - 199; j <= i; j++) sum += data[j].close;
+        data[i].dma200 = sum / 200;
+      }
+    }
+    return data;
+  }, [stock?.historical]);
+
+  // Check if stock is in any watchlist
+  const isInWatchlist = (w: any) => w.stocks?.some((s: any) => s.symbol === cleanSymbol);
+  const isFollowing = watchlists.some(isInWatchlist);
+
+  const handleToggleWatchlist = async (watchlistId: string, currentlyIn: boolean) => {
+    try {
+      if (currentlyIn) {
+        await fetch(`/api/watchlist?watchlistId=${watchlistId}&symbol=${cleanSymbol}`, { method: 'DELETE' });
+      } else {
+        await fetch('/api/watchlist', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ watchlistId, symbol: cleanSymbol })
+        });
+      }
+      // Refetch watchlists
+      const res = await fetch('/api/watchlist');
+      const data = await res.json();
+      if (data.watchlists) setWatchlists(data.watchlists);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCreateWatchlist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWatchlistName.trim()) return;
+    try {
+      await fetch('/api/watchlist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newWatchlistName, color: '#818cf8' })
+      });
+      setNewWatchlistName('');
+      // Refetch
+      const res = await fetch('/api/watchlist');
+      const data = await res.json();
+      if (data.watchlists) setWatchlists(data.watchlists);
+    } catch (e) { console.error(e); }
+  };
+
   const r = screener?.topRatios || {};
 
   const mcap = r['Market Cap']?.replace('₹', '').replace('Cr.', '').trim() || (stock.currentPrice * 1234).toFixed(0);
@@ -123,13 +199,53 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
           </div>
         </div>
         
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 relative">
           <button className="btn-secondary text-xs px-4 py-2 flex items-center gap-2 border-white/10 hover:bg-white/10">
             <Download className="w-4 h-4" /> EXPORT TO EXCEL
           </button>
-          <button onClick={() => setInWatchlist(!inWatchlist)} className={`btn-primary text-xs px-5 py-2 flex items-center gap-2 transition-all ${inWatchlist ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-            <Plus className={`w-4 h-4 transition-transform ${inWatchlist ? 'rotate-45' : ''}`} /> {inWatchlist ? 'FOLLOWING' : 'FOLLOW'}
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowWatchlistMenu(!showWatchlistMenu)} 
+              className={`btn-primary text-xs px-5 py-2 flex items-center gap-2 transition-all ${isFollowing ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+            >
+              <Plus className={`w-4 h-4 transition-transform ${isFollowing ? 'rotate-45' : ''}`} /> {isFollowing ? 'FOLLOWING' : 'FOLLOW'}
+            </button>
+            
+            {showWatchlistMenu && (
+              <div className="absolute top-full right-0 mt-2 w-64 bg-[#18181b] border border-white/10 rounded-lg shadow-xl overflow-hidden z-50">
+                <div className="p-3 border-b border-white/5 bg-white/5">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add to Watchlist</h4>
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {watchlists.map(w => {
+                    const inThis = isInWatchlist(w);
+                    return (
+                      <button 
+                        key={w.id} 
+                        onClick={() => handleToggleWatchlist(w.id, inThis)}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left"
+                      >
+                        <span className="text-sm text-foreground flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: w.color }}></span>
+                          {w.name}
+                        </span>
+                        {inThis && <Check className="w-4 h-4 text-emerald-400" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <form onSubmit={handleCreateWatchlist} className="p-3 border-t border-white/5 bg-white/[0.02]">
+                  <input 
+                    type="text" 
+                    placeholder="Create new watchlist..." 
+                    value={newWatchlistName}
+                    onChange={(e) => setNewWatchlistName(e.target.value)}
+                    className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-indigo-500"
+                  />
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -232,7 +348,7 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
         </div>
         
         <ResponsiveContainer width="100%" height={350}>
-          <ComposedChart data={stock.historical}>
+          <ComposedChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
             <XAxis dataKey="date" tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })} minTickGap={30} />
             <YAxis yAxisId="price" orientation="right" tick={{ fill: '#71717a', fontSize: 10 }} domain={['auto', 'auto']} tickFormatter={(v) => `₹${v.toFixed(0)}`} />
@@ -240,25 +356,32 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
             <RechartsTooltip 
               contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '12px' }}
               labelFormatter={(label) => new Date(label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-              formatter={(value: any, name: any) => [name === 'Volume' ? (value / 1000).toFixed(0) + 'k' : `₹${Number(value).toFixed(2)}`, name === 'close' ? 'Price' : name]}
+              formatter={(value: any, name: any) => {
+                if (name === 'Volume') return [(value / 1000).toFixed(0) + 'k', 'Volume'];
+                if (name === 'dma50') return [`₹${Number(value).toFixed(2)}`, '50 DMA'];
+                if (name === 'dma200') return [`₹${Number(value).toFixed(2)}`, '200 DMA'];
+                return [`₹${Number(value).toFixed(2)}`, 'Price'];
+              }}
             />
-            <Bar yAxisId="vol" dataKey="volume" fill="#4f46e5" opacity={0.3} maxBarSize={10} />
-            <Area yAxisId="price" type="monotone" dataKey="close" stroke="#818cf8" strokeWidth={2} fillOpacity={0} />
+            {showVolume && <Bar yAxisId="vol" dataKey="volume" fill="#4f46e5" opacity={0.3} maxBarSize={10} />}
+            {showPrice && <Area yAxisId="price" type="monotone" dataKey="close" stroke="#818cf8" strokeWidth={2} fillOpacity={0} />}
+            {show50DMA && <Line yAxisId="price" type="monotone" dot={false} dataKey="dma50" stroke="#eab308" strokeWidth={1.5} />}
+            {show200DMA && <Line yAxisId="price" type="monotone" dot={false} dataKey="dma200" stroke="#ec4899" strokeWidth={1.5} />}
           </ComposedChart>
         </ResponsiveContainer>
         
         <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-white/5">
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-            <input type="checkbox" checked readOnly className="accent-indigo-500" /> Price on NSE
+            <input type="checkbox" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} className="accent-indigo-500" /> Price on NSE
           </label>
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-            <input type="checkbox" className="accent-indigo-500" /> 50 DMA
+            <input type="checkbox" checked={show50DMA} onChange={(e) => setShow50DMA(e.target.checked)} className="accent-indigo-500" /> 50 DMA
           </label>
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-            <input type="checkbox" className="accent-indigo-500" /> 200 DMA
+            <input type="checkbox" checked={show200DMA} onChange={(e) => setShow200DMA(e.target.checked)} className="accent-indigo-500" /> 200 DMA
           </label>
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-            <input type="checkbox" checked readOnly className="accent-indigo-500" /> Volume
+            <input type="checkbox" checked={showVolume} onChange={(e) => setShowVolume(e.target.checked)} className="accent-indigo-500" /> Volume
           </label>
         </div>
       </div>
