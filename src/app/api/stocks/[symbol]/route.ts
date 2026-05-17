@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 
-export async function GET(request: Request, { params }: { params: { symbol: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ symbol: string }> }) {
   try {
-    const symbol = params.symbol;
+    const resolvedParams = await params;
+    const symbol = resolvedParams.symbol;
     // append .NS if not present and not an index
     const fetchSymbol = (symbol.includes('.') || symbol.startsWith('^')) ? symbol : `${symbol}.NS`;
     
