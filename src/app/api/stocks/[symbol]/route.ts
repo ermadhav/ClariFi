@@ -4,10 +4,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ symb
   try {
     const resolvedParams = await params;
     const symbol = resolvedParams.symbol;
+    
+    // Get URL search params for range and interval
+    const urlObj = new URL(request.url);
+    const range = urlObj.searchParams.get('range') || '1y';
+    let interval = urlObj.searchParams.get('interval') || '1d';
+    
+    // Adjust interval for longer ranges if not provided
+    if (!urlObj.searchParams.get('interval')) {
+        if (range === '5y' || range === '10y' || range === 'max') interval = '1wk';
+        if (range === '1mo') interval = '15m';
+        if (range === '6mo') interval = '1d';
+    }
+
     // append .NS if not present and not an index
     const fetchSymbol = (symbol.includes('.') || symbol.startsWith('^')) ? symbol : `${symbol}.NS`;
     
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?range=1y&interval=1d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?range=${range}&interval=${interval}`;
     const res = await fetch(url);
     
     if (!res.ok) {
