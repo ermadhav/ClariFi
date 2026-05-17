@@ -40,17 +40,38 @@ export async function GET(request: Request) {
     if (symbols.length > 0) {
       const fetchSymbol = async (symbol: string) => {
         try {
-          const response = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}`);
-          if (!response.ok) return null;
-          const data = await response.json();
-          return data.chart?.result?.[0]?.meta;
+          const [yahooRes, screenerRes] = await Promise.all([
+            fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}.NS`),
+            fetch(`https://www.screener.in/company/${symbol}/`)
+          ]);
+
+          let meta = null;
+          if (yahooRes.ok) {
+            const data = await yahooRes.json();
+            meta = data.chart?.result?.[0]?.meta;
+          }
+
+          let pe = 0, high52w = 0, low52w = 0;
+          if (screenerRes.ok) {
+            const html = await screenerRes.text();
+            const peMatch = html.match(/Stock P\/E.*?<span class="number">([^<]+)<\/span>/s);
+            const hlMatch = html.match(/High \/ Low.*?<span class="number">([^<]+)<\/span>.*?<span class="number">([^<]+)<\/span>/s);
+            if (peMatch) pe = parseFloat(peMatch[1].replace(/,/g, ''));
+            if (hlMatch) {
+              high52w = parseFloat(hlMatch[1].replace(/,/g, ''));
+              low52w = parseFloat(hlMatch[2].replace(/,/g, ''));
+            }
+          }
+
+          return { symbol, meta, pe, high52w, low52w };
         } catch (e) { return null; }
       };
 
       const results = await Promise.all(symbols.map(fetchSymbol));
       
-      stocksData = results.filter(Boolean).map((meta: any, idx: number) => {
-        const symbol = meta.symbol.replace('.NS', '');
+      stocksData = results.filter(Boolean).map((res: any, idx: number) => {
+        const symbol = res.symbol;
+        const meta = res.meta || {};
         const price = meta.regularMarketPrice || 0;
         const prev = meta.chartPreviousClose || meta.previousClose || price;
         const change = price - prev;
@@ -64,9 +85,9 @@ export async function GET(request: Request) {
           dayChange: change,
           dayChangePercent: changePercent,
           sector: 'Unknown',
-          high52w: meta.fiftyTwoWeekHigh || price * 1.2,
-          low52w: meta.fiftyTwoWeekLow || price * 0.8,
-          pe: meta.trailingPE || 0,
+          high52w: res.high52w || meta.fiftyTwoWeekHigh || price * 1.2,
+          low52w: res.low52w || meta.fiftyTwoWeekLow || price * 0.8,
+          pe: res.pe || meta.trailingPE || 0,
           sparklineData: Array.from({ length: 20 }, (_, i) => price + (Math.random() - 0.5) * price * 0.02),
         };
       });
