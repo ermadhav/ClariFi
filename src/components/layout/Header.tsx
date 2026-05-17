@@ -8,11 +8,27 @@ export default function Header() {
   const { sidebarOpen, setCommandPaletteOpen, activePage } = useAppStore();
   const [isMarketOpen, setIsMarketOpen] = useState(false);
 
+  const [indices, setIndices] = useState<any[]>(mockIndices.slice(0, 3));
+
   useEffect(() => {
     const now = new Date();
     const hours = now.getHours();
     const day = now.getDay();
     setIsMarketOpen(day >= 1 && day <= 5 && hours >= 9 && hours < 16);
+
+    const fetchIndices = async () => {
+      try {
+        const res = await fetch('/api/market/indices');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.indices) setIndices(data.indices);
+        }
+      } catch (e) {}
+    };
+
+    fetchIndices();
+    const interval = setInterval(fetchIndices, 60000); // refresh every minute
+    return () => clearInterval(interval);
   }, []);
 
   const pageTitle: Record<string, string> = {
@@ -40,10 +56,10 @@ export default function Header() {
       <div className="flex items-center gap-6">
         <h1 className="text-lg font-semibold text-foreground">{pageTitle[activePage] || 'Dashboard'}</h1>
         <div className="hidden lg:flex items-center gap-4 ml-4">
-          {mockIndices.slice(0, 3).map((idx) => (
+          {indices.map((idx) => (
             <div key={idx.name} className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground font-medium">{idx.name}</span>
-              <span className="text-foreground font-semibold">{idx.value.toLocaleString('en-IN')}</span>
+              <span className="text-foreground font-semibold">{idx.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               <span className={idx.change >= 0 ? 'text-profit' : 'text-loss'}>
                 {idx.change >= 0 ? '▲' : '▼'} {Math.abs(idx.changePercent).toFixed(2)}%
               </span>
