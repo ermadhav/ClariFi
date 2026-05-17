@@ -6,50 +6,60 @@ import { formatCurrency, formatPercent } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Globe, Activity, BarChart3, DollarSign, Flame } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
-const topGainers = [...mockHoldings].sort((a, b) => b.dayChangePercent - a.dayChangePercent).slice(0, 5);
-const topLosers = [...mockHoldings].sort((a, b) => a.dayChangePercent - b.dayChangePercent).slice(0, 5);
-
-const globalIndices = [
-  { name: 'Dow Jones', value: 42580.50, change: 0.45 },
-  { name: 'S&P 500', value: 5892.30, change: 0.62 },
-  { name: 'NASDAQ', value: 19245.80, change: 0.89 },
-  { name: 'FTSE 100', value: 8456.20, change: -0.23 },
-  { name: 'Nikkei 225', value: 38920.40, change: 1.12 },
-  { name: 'Hang Seng', value: 19845.60, change: -0.78 },
-];
-
-const commodities = [
-  { name: 'Gold', price: '₹72,450/10g', change: 0.35 },
-  { name: 'Silver', price: '₹86,200/kg', change: -0.42 },
-  { name: 'Crude Oil', price: '$78.50/bbl', change: 1.15 },
-];
-
-const currencies = [
-  { pair: 'USD/INR', value: 83.42, change: -0.08 },
-  { pair: 'EUR/INR', value: 90.85, change: 0.12 },
-  { pair: 'GBP/INR', value: 106.20, change: -0.15 },
-];
-
 export default function MarketPage() {
   const [moverTab, setMoverTab] = useState<'gainers' | 'losers'>('gainers');
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(null);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/api/market/overview');
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        }
+      } catch (e) {
+        console.error('Failed to fetch market overview', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const indices = data?.indices || [];
+  const sectors = data?.sectors || [];
+  const globalIndices = data?.globalIndices || [];
+  const commodities = data?.commodities || [];
+  const currencies = data?.currencies || [];
+  const topGainers = data?.topGainers || [];
+  const topLosers = data?.topLosers || [];
 
   return (
     <div className="space-y-6 animate-in">
-      {/* Indices */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
-        {mockIndices.map((idx, i) => (
+        {indices.map((idx: any, i: number) => (
           <motion.div key={idx.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="glass-card glass-card-hover p-4">
             <div className="text-xs text-muted-foreground font-medium mb-1">{idx.name}</div>
-            <div className="text-lg font-bold text-foreground">{idx.value.toLocaleString('en-IN')}</div>
+            <div className="text-lg font-bold text-foreground">{idx.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
             <div className={`flex items-center gap-1 text-sm font-medium ${idx.change >= 0 ? 'text-profit' : 'text-loss'}`}>
               {idx.change >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
               {idx.change >= 0 ? '+' : ''}{idx.change.toFixed(2)} ({formatPercent(idx.changePercent)})
             </div>
             <div className="mt-2">
               <ResponsiveContainer width="100%" height={40}>
-                <AreaChart data={idx.sparkline.map((v, j) => ({ v, i: j }))}>
+                <AreaChart data={idx.sparkline?.map((v: any, j: number) => ({ v, i: j })) || []}>
                   <defs><linearGradient id={`idx${i}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={idx.change >= 0 ? '#22c55e' : '#ef4444'} stopOpacity={0.3} /><stop offset="100%" stopColor={idx.change >= 0 ? '#22c55e' : '#ef4444'} stopOpacity={0} /></linearGradient></defs>
-                  <Area type="monotone" dataKey="v" stroke={idx.change >= 0 ? '#22c55e' : '#ef4444'} strokeWidth={1.5} fill={`url(#idx${i})`} />
+                  <Area type="monotone" dataKey="v" stroke={idx.change >= 0 ? '#22c55e' : '#ef4444'} strokeWidth={1.5} fill={`url(#idx${i})`} isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -62,7 +72,7 @@ export default function MarketPage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="xl:col-span-2 glass-card p-5">
           <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2"><Flame className="w-4 h-4 text-amber-400" /> Sector Performance</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-            {mockSectors.map((s) => (
+            {sectors.map((s: any) => (
               <div key={s.name} className={`p-3 rounded-lg border transition-all cursor-pointer hover:scale-105 ${s.change >= 0 ? 'bg-profit/5 border-profit/20 hover:border-profit/40' : 'bg-loss/5 border-loss/20 hover:border-loss/40'}`}>
                 <div className="text-xs font-medium text-foreground">{s.name}</div>
                 <div className={`text-lg font-bold ${s.change >= 0 ? 'text-profit' : 'text-loss'}`}>{formatPercent(s.change)}</div>
@@ -103,12 +113,12 @@ export default function MarketPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="glass-card p-5">
           <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2"><Globe className="w-4 h-4 text-indigo-400" /> Global Indices</h2>
           <div className="space-y-2">
-            {globalIndices.map((g) => (
-              <div key={g.name} className="flex items-center justify-between py-1.5">
+            {globalIndices.map((g: any) => (
+              <div key={g.name} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
                 <span className="text-xs text-muted-foreground">{g.name}</span>
                 <div className="text-right">
-                  <span className="text-xs text-foreground font-medium">{g.value.toLocaleString()}</span>
-                  <span className={`text-xs ml-2 ${g.change >= 0 ? 'text-profit' : 'text-loss'}`}>{formatPercent(g.change)}</span>
+                  <span className="text-xs text-foreground font-medium">{g.value.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+                  <span className={`text-xs ml-2 ${g.changePercent >= 0 ? 'text-profit' : 'text-loss'}`}>{formatPercent(g.changePercent)}</span>
                 </div>
               </div>
             ))}
@@ -117,9 +127,9 @@ export default function MarketPage() {
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="glass-card p-5">
           <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2"><Activity className="w-4 h-4 text-amber-400" /> Commodities</h2>
-          <div className="space-y-3">
-            {commodities.map((c) => (
-              <div key={c.name} className="flex items-center justify-between py-1.5">
+          <div className="space-y-2">
+            {commodities.map((c: any) => (
+              <div key={c.name} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
                 <span className="text-xs text-muted-foreground">{c.name}</span>
                 <div className="text-right">
                   <span className="text-xs text-foreground font-medium">{c.price}</span>
@@ -132,12 +142,12 @@ export default function MarketPage() {
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="glass-card p-5">
           <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2"><DollarSign className="w-4 h-4 text-emerald-400" /> Currency Rates</h2>
-          <div className="space-y-3">
-            {currencies.map((c) => (
-              <div key={c.pair} className="flex items-center justify-between py-1.5">
+          <div className="space-y-2">
+            {currencies.map((c: any) => (
+              <div key={c.pair} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
                 <span className="text-xs text-muted-foreground">{c.pair}</span>
                 <div className="text-right">
-                  <span className="text-xs text-foreground font-medium">₹{c.value}</span>
+                  <span className="text-xs text-foreground font-medium">₹{c.value.toFixed(2)}</span>
                   <span className={`text-xs ml-2 ${c.change >= 0 ? 'text-profit' : 'text-loss'}`}>{formatPercent(c.change)}</span>
                 </div>
               </div>
