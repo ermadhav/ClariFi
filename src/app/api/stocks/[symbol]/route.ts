@@ -17,6 +17,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ symb
         else interval = '1mo'; // 10y and max
     }
 
+    // append .NS if not present and not an index
+    const fetchSymbol = (symbol.includes('.') || symbol.startsWith('^')) ? symbol : `${symbol}.NS`;
+
     // Determine the padded fetch range to ensure enough data for 200 SMA
     let fetchRange = range;
     if (interval === '1d') {

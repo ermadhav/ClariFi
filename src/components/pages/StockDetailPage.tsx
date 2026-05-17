@@ -186,9 +186,6 @@ export default function StockDetailPage({ symbol }: { symbol: string }) {
         </div>
         
         <div className="flex items-center gap-3 shrink-0 relative">
-          <button className="btn-secondary text-xs px-4 py-2 flex items-center gap-2 border-white/10 hover:bg-white/10">
-            <Download className="w-4 h-4" /> EXPORT TO EXCEL
-          </button>
           <div className="relative">
             <button 
               onClick={() => setShowWatchlistMenu(!showWatchlistMenu)} 
