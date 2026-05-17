@@ -18,59 +18,65 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let watchlist = await prisma.watchlist.findFirst({
+    let watchlists = await prisma.watchlist.findMany({
       where: { userId: userId },
       include: { stocks: true },
     });
 
-    if (!watchlist) {
-      watchlist = await prisma.watchlist.create({
+    if (watchlists.length === 0) {
+      const defaultWatchlist = await prisma.watchlist.create({
         data: {
           userId: userId,
           name: 'Keep an Eye',
+          color: '#f59e0b'
         },
         include: { stocks: true }
       });
+      watchlists = [defaultWatchlist];
     }
 
-    // Fetch real-time data for these symbols from Yahoo Finance
-    const symbols = watchlist.stocks.map(s => s.symbol); // e.g. "RELIANCE"
-    let stocksData = [];
+    const allSymbols = new Set<string>();
+    watchlists.forEach(w => w.stocks.forEach(s => allSymbols.add(s.symbol)));
 
-    if (symbols.length > 0) {
-      const fetchSymbol = async (symbol: string) => {
-        try {
-          const [yahooRes, screenerRes] = await Promise.all([
-            fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}.NS`),
-            fetch(`https://www.screener.in/company/${symbol}/`)
-          ]);
+    const fetchSymbol = async (symbol: string) => {
+      try {
+        const [yahooRes, screenerRes] = await Promise.all([
+          fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}.NS`),
+          fetch(`https://www.screener.in/company/${symbol}/`)
+        ]);
 
-          let meta = null;
-          if (yahooRes.ok) {
-            const data = await yahooRes.json();
-            meta = data.chart?.result?.[0]?.meta;
+        let meta = null;
+        if (yahooRes.ok) {
+          const data = await yahooRes.json();
+          meta = data.chart?.result?.[0]?.meta;
+        }
+
+        let pe = 0, high52w = 0, low52w = 0;
+        if (screenerRes.ok) {
+          const html = await screenerRes.text();
+          const peMatch = html.match(/Stock P\/E.*?<span class="number">([^<]+)<\/span>/s);
+          const hlMatch = html.match(/High \/ Low.*?<span class="number">([^<]+)<\/span>.*?<span class="number">([^<]+)<\/span>/s);
+          if (peMatch) pe = parseFloat(peMatch[1].replace(/,/g, ''));
+          if (hlMatch) {
+            high52w = parseFloat(hlMatch[1].replace(/,/g, ''));
+            low52w = parseFloat(hlMatch[2].replace(/,/g, ''));
           }
+        }
 
-          let pe = 0, high52w = 0, low52w = 0;
-          if (screenerRes.ok) {
-            const html = await screenerRes.text();
-            const peMatch = html.match(/Stock P\/E.*?<span class="number">([^<]+)<\/span>/s);
-            const hlMatch = html.match(/High \/ Low.*?<span class="number">([^<]+)<\/span>.*?<span class="number">([^<]+)<\/span>/s);
-            if (peMatch) pe = parseFloat(peMatch[1].replace(/,/g, ''));
-            if (hlMatch) {
-              high52w = parseFloat(hlMatch[1].replace(/,/g, ''));
-              low52w = parseFloat(hlMatch[2].replace(/,/g, ''));
-            }
-          }
+        return { symbol, meta, pe, high52w, low52w };
+      } catch (e) { return null; }
+    };
 
-          return { symbol, meta, pe, high52w, low52w };
-        } catch (e) { return null; }
-      };
+    const results = await Promise.all(Array.from(allSymbols).map(fetchSymbol));
+    const dataMap = new Map();
+    results.filter(Boolean).forEach((res: any) => dataMap.set(res.symbol, res));
 
-      const results = await Promise.all(symbols.map(fetchSymbol));
-      
-      stocksData = results.filter(Boolean).map((res: any, idx: number) => {
-        const symbol = res.symbol;
+    const watchlistsData = watchlists.map(w => ({
+      id: w.id,
+      name: w.name,
+      color: w.color,
+      stocks: w.stocks.map(s => {
+        const res = dataMap.get(s.symbol) || { symbol: s.symbol };
         const meta = res.meta || {};
         const price = meta.regularMarketPrice || 0;
         const prev = meta.chartPreviousClose || meta.previousClose || price;
@@ -78,9 +84,9 @@ export async function GET(request: Request) {
         const changePercent = prev > 0 ? (change / prev) * 100 : 0;
         
         return {
-          id: watchlist!.stocks[idx].id,
-          symbol: symbol,
-          companyName: symbol, // In a real app we'd fetch full name
+          id: s.id,
+          symbol: s.symbol,
+          companyName: s.symbol,
           currentPrice: price,
           dayChange: change,
           dayChangePercent: changePercent,
@@ -90,10 +96,10 @@ export async function GET(request: Request) {
           pe: res.pe || meta.trailingPE || 0,
           sparklineData: Array.from({ length: 20 }, (_, i) => price + (Math.random() - 0.5) * price * 0.02),
         };
-      });
-    }
+      })
+    }));
 
-    return NextResponse.json({ stocks: stocksData });
+    return NextResponse.json({ watchlists: watchlistsData });
   } catch (error) {
     console.error('Watchlist GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch watchlist' }, { status: 500 });
@@ -116,22 +122,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { symbol } = await request.json();
-    if (!symbol) return NextResponse.json({ error: 'Symbol required' }, { status: 400 });
+    const body = await request.json();
+    const { name, color, symbol, watchlistId } = body;
 
-    let watchlist = await prisma.watchlist.findFirst({
-      where: { userId: userId },
-    });
-
-    if (!watchlist) {
-      watchlist = await prisma.watchlist.create({
-        data: { userId: userId, name: 'Keep an Eye' },
+    // Create new watchlist
+    if (name && !symbol) {
+      const newWatchlist = await prisma.watchlist.create({
+        data: {
+          userId: userId,
+          name: name,
+          color: color || '#6366f1'
+        }
       });
+      return NextResponse.json({ success: true, watchlist: newWatchlist });
+    }
+
+    // Add stock to existing watchlist
+    if (!symbol || !watchlistId) {
+      return NextResponse.json({ error: 'Symbol and watchlistId required' }, { status: 400 });
     }
 
     const stock = await prisma.watchlistStock.create({
       data: {
-        watchlistId: watchlist.id,
+        watchlistId: watchlistId,
         symbol: symbol.toUpperCase().replace('.NS', ''),
         exchange: 'NSE'
       }
@@ -163,21 +176,22 @@ export async function DELETE(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const symbol = searchParams.get('symbol');
+    const watchlistId = searchParams.get('watchlistId');
     
-    if (!symbol) return NextResponse.json({ error: 'Symbol required' }, { status: 400 });
+    if (!symbol || !watchlistId) return NextResponse.json({ error: 'Symbol and watchlistId required' }, { status: 400 });
 
-    let watchlist = await prisma.watchlist.findFirst({
-      where: { userId: userId },
-    });
-
-    if (watchlist) {
-      await prisma.watchlistStock.deleteMany({
-        where: {
-          watchlistId: watchlist.id,
-          symbol: symbol
-        }
-      });
+    // Verify ownership
+    const watchlist = await prisma.watchlist.findUnique({ where: { id: watchlistId } });
+    if (!watchlist || watchlist.userId !== userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    await prisma.watchlistStock.deleteMany({
+      where: {
+        watchlistId: watchlistId,
+        symbol: symbol
+      }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

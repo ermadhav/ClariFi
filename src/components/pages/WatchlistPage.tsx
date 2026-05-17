@@ -7,10 +7,8 @@ import { Plus, Star, Bell, BarChart3, Search, GripVertical, Trash2, Eye, X } fro
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { useAppStore } from '@/lib/store';
 
-const watchlists = [
-  { id: 'holdings', name: 'My Holdings', color: '#6366f1', isDefault: true },
-  { id: 'watchlist', name: 'Keep an Eye', color: '#f59e0b', isDefault: true },
-  { id: 'dividend', name: 'High Dividend', color: '#22c55e', isDefault: false },
+const BASE_TABS = [
+  { id: 'holdings', name: 'My Holdings', color: '#6366f1' },
 ];
 
 function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }) {
@@ -31,15 +29,17 @@ function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }
 }
 
 export default function WatchlistPage() {
-  const [activeTab, setActiveTab] = useState('watchlist');
+  const [activeTab, setActiveTab] = useState('holdings');
   const [search, setSearch] = useState('');
   const { setActivePage } = useAppStore();
 
   const [holdings, setHoldings] = useState<any[]>([]);
-  const [watchlistStocks, setWatchlistStocks] = useState<any[]>([]);
+  const [watchlists, setWatchlists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newWatchlistName, setNewWatchlistName] = useState('');
   const [modalSearch, setModalSearch] = useState('');
   const [modalResults, setModalResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -72,7 +72,11 @@ export default function WatchlistPage() {
 
       if (watchlistRes.ok) {
         const wData = await watchlistRes.json();
-        setWatchlistStocks(wData.stocks || []);
+        setWatchlists(wData.watchlists || []);
+        if (activeTab === 'holdings' && wData.watchlists?.length > 0) {
+           // We can keep 'holdings' as default, or if it's the first load, set it to the first DB watchlist.
+           // Actually, keeping 'holdings' as default is fine.
+        }
       }
     } catch (err) {
       console.error(err);
@@ -108,14 +112,14 @@ export default function WatchlistPage() {
   }, [modalSearch]);
 
   const handleAddStock = async (symbol: string) => {
-    if (!symbol) return;
+    if (!symbol || activeTab === 'holdings') return;
     setIsSearchModalOpen(false);
     setModalSearch('');
     try {
       const res = await fetch('/api/watchlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: symbol })
+        body: JSON.stringify({ symbol: symbol, watchlistId: activeTab })
       });
       if (res.ok) {
         fetchData();
@@ -125,10 +129,31 @@ export default function WatchlistPage() {
     }
   };
 
+  const handleCreateWatchlist = async () => {
+    if (!newWatchlistName.trim()) return;
+    try {
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newWatchlistName, color: '#8b5cf6' })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsCreateModalOpen(false);
+        setNewWatchlistName('');
+        setActiveTab(data.watchlist.id);
+        fetchData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleRemoveStock = async (symbol: string) => {
+    if (activeTab === 'holdings') return;
     if (!confirm(`Are you sure you want to remove ${symbol} from the watchlist?`)) return;
     try {
-      const res = await fetch(`/api/watchlist?symbol=${encodeURIComponent(symbol)}`, {
+      const res = await fetch(`/api/watchlist?symbol=${encodeURIComponent(symbol)}&watchlistId=${activeTab}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -139,7 +164,8 @@ export default function WatchlistPage() {
     }
   };
 
-  const stocks = activeTab === 'holdings' ? holdings : watchlistStocks;
+  const activeWatchlist = watchlists.find(w => w.id === activeTab);
+  const stocks = activeTab === 'holdings' ? holdings : (activeWatchlist?.stocks || []);
 
   const filtered = stocks.filter((s) =>
     s.companyName?.toLowerCase().includes(search.toLowerCase()) || s.symbol?.toLowerCase().includes(search.toLowerCase())
@@ -155,20 +181,31 @@ export default function WatchlistPage() {
     <div className="space-y-6 animate-in">
       {/* Tabs + Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex gap-1 bg-white/5 rounded-lg p-0.5">
-          {watchlists.map((w) => (
-            <button key={w.id} onClick={() => setActiveTab(w.id)} className={`tab-button flex items-center gap-1.5 ${activeTab === w.id ? 'active' : ''}`}>
+        <div className="flex gap-1 bg-white/5 rounded-lg p-0.5 overflow-x-auto max-w-full no-scrollbar">
+          {BASE_TABS.map((w) => (
+            <button key={w.id} onClick={() => setActiveTab(w.id)} className={`tab-button whitespace-nowrap flex items-center gap-1.5 ${activeTab === w.id ? 'active' : ''}`}>
               <span className="w-2 h-2 rounded-full" style={{ background: w.color }} />
               {w.name}
             </button>
           ))}
+          {watchlists.map((w) => (
+            <button key={w.id} onClick={() => setActiveTab(w.id)} className={`tab-button whitespace-nowrap flex items-center gap-1.5 ${activeTab === w.id ? 'active' : ''}`}>
+              <span className="w-2 h-2 rounded-full" style={{ background: w.color || '#f59e0b' }} />
+              {w.name}
+            </button>
+          ))}
+          <button onClick={() => setIsCreateModalOpen(true)} className="tab-button whitespace-nowrap flex items-center gap-1.5 opacity-70 hover:opacity-100">
+            <Plus className="w-3.5 h-3.5" /> Create
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stocks..." className="input-field pl-9 py-1.5 text-xs w-48" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stocks..." className="input-field pl-9 py-1.5 text-xs w-40 sm:w-48" />
           </div>
-          <button onClick={() => setIsSearchModalOpen(true)} className="btn-primary text-xs py-1.5"><Plus className="w-3.5 h-3.5" /> Add Stock</button>
+          {activeTab !== 'holdings' && (
+            <button onClick={() => setIsSearchModalOpen(true)} className="btn-primary text-xs py-1.5 whitespace-nowrap"><Plus className="w-3.5 h-3.5" /> Add Stock</button>
+          )}
         </div>
       </div>
 
@@ -250,6 +287,37 @@ export default function WatchlistPage() {
           </div>
         )}
       </div>
+
+      {/* Create Watchlist Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm bg-[#0a0a0d] border border-white/10 rounded-xl shadow-2xl overflow-hidden p-6"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-foreground">Create Watchlist</h3>
+              <button onClick={() => setIsCreateModalOpen(false)} className="p-1 rounded-md hover:bg-white/10">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Watchlist Name</label>
+                <input
+                  autoFocus
+                  value={newWatchlistName}
+                  onChange={(e) => setNewWatchlistName(e.target.value)}
+                  placeholder="e.g. EV Stocks, Tech..."
+                  className="input-field w-full"
+                />
+              </div>
+              <button onClick={handleCreateWatchlist} className="btn-primary w-full justify-center">Create Watchlist</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Add Stock Modal */}
       {isSearchModalOpen && (
