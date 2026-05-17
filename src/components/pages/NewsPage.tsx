@@ -122,7 +122,7 @@ export default function NewsPage() {
           </h2>
           <div className="flex items-center gap-4">
             <span className="text-xs text-muted-foreground hidden sm:block">
-              Updated {timeAgo(lastUpdated.toISOString())}
+              Updated {timeAgo(lastUpdated)}
             </span>
             <button 
               onClick={() => setIsLive(!isLive)}
@@ -249,7 +249,7 @@ export default function NewsPage() {
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="font-medium text-foreground/80">{n.source}</span>
                     <span>·</span>
-                    <span>{timeAgo(n.publishedAt)}</span>
+                    <span>{timeAgo(new Date(n.publishedAt))}</span>
                   </div>
                   <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                     <button className="p-2 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground hover:text-white">
