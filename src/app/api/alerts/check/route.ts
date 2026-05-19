@@ -29,36 +29,28 @@ export async function GET() {
     }
     const symbols = Array.from(symbolSet);
 
-    // Fetch live prices from Yahoo Finance for all unique symbols
+    // Fetch live prices using Yahoo Finance v8 chart API (more reliable, no auth needed)
     const priceMap: Record<string, number> = {};
     
-    // Batch symbols into groups of 10 for the quote API
-    for (let i = 0; i < symbols.length; i += 10) {
-      const batch = symbols.slice(i, i + 10);
-      const yahooSymbols = batch.map(s => 
-        (s.includes('.') || s.startsWith('^')) ? s : `${s}.NS`
-      ).join(',');
-      
+    await Promise.all(symbols.map(async (sym) => {
+      const yahooSym = (sym.includes('.') || sym.startsWith('^')) ? sym : `${sym}.NS`;
       try {
         const res = await fetch(
-          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbols}`,
+          `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSym}?range=1d&interval=1m`,
           { cache: 'no-store' }
         );
         if (res.ok) {
           const data = await res.json();
-          const results = data.quoteResponse?.result || [];
-          for (const q of results) {
-            // Map back to clean symbol
-            const cleanSym = q.symbol?.replace('.NS', '').replace('.BO', '') || '';
-            priceMap[cleanSym] = q.regularMarketPrice ?? 0;
-            // Also store with original symbol for exact match
-            priceMap[q.symbol] = q.regularMarketPrice ?? 0;
+          const meta = data.chart?.result?.[0]?.meta;
+          if (meta?.regularMarketPrice) {
+            priceMap[sym] = meta.regularMarketPrice;
+            priceMap[yahooSym] = meta.regularMarketPrice;
           }
         }
       } catch (err) {
-        console.error('Price fetch error for batch:', batch, err);
+        console.error('Price fetch error for', sym, err);
       }
-    }
+    }));
 
     const triggered: any[] = [];
 
