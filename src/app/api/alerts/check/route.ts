@@ -4,7 +4,6 @@ import prisma from '@/lib/prisma';
 // GET /api/alerts/check — Evaluate all active alerts against live prices
 export async function GET() {
   try {
-    // Fetch all active, non-triggered alerts that have a symbol and targetValue
     const alerts = await prisma.alert.findMany({
       where: {
         isActive: true,
@@ -22,22 +21,30 @@ export async function GET() {
       return NextResponse.json({ checked: 0, triggered: [] });
     }
 
-    // Deduplicate symbols to minimize API calls
+    // Deduplicate symbols
     const symbolSet = new Set<string>();
     for (const a of alerts) {
       if (a.symbol) symbolSet.add(a.symbol);
     }
     const symbols = Array.from(symbolSet);
 
-    // Fetch live prices using Yahoo Finance v8 chart API (more reliable, no auth needed)
+    // Fetch live prices using Yahoo Finance v8 chart API
+    // Use random query param to bust any edge/CDN caches
     const priceMap: Record<string, number> = {};
-    
+    const cacheBuster = Date.now();
+
     await Promise.all(symbols.map(async (sym) => {
       const yahooSym = (sym.includes('.') || sym.startsWith('^')) ? sym : `${sym}.NS`;
       try {
         const res = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSym}?range=1d&interval=1m`,
-          { cache: 'no-store' }
+          `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSym}?range=1d&interval=1m&_=${cacheBuster}`,
+          {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+            },
+          }
         );
         if (res.ok) {
           const data = await res.json();
@@ -57,39 +64,47 @@ export async function GET() {
     for (const alert of alerts) {
       const sym = alert.symbol!;
       const price = priceMap[sym] ?? priceMap[`${sym}.NS`] ?? null;
-      
-      if (price === null || price === 0) continue; // Skip if price unavailable
-      
+
+      if (price === null || price === 0) {
+        console.log(`[ALERT CHECK] No price for ${sym}, skipping`);
+        continue;
+      }
+
       const target = alert.targetValue!;
       let conditionMet = false;
 
+      console.log(`[ALERT CHECK] ${sym}: price=${price}, target=${target}, type=${alert.type}`);
+
       switch (alert.type) {
         case 'PRICE_ABOVE':
-          conditionMet = price >= target;
+          // Use small epsilon for floating point safety
+          conditionMet = price >= target - 0.01;
           break;
         case 'PRICE_BELOW':
-          conditionMet = price <= target;
+          conditionMet = price <= target + 0.01;
           break;
         case 'PERCENT_CHANGE':
-          // Would need previous close for this — skip for now
           break;
         case 'WEEK52_HIGH':
         case 'WEEK52_LOW':
-          // Would need 52w data — skip for now
           break;
         default:
           break;
       }
 
-      // Check cooldown — don't re-trigger within cooldown period
+      // Check cooldown
       if (conditionMet && alert.lastNotifiedAt) {
         const cooldownMs = (alert.cooldownMinutes || 60) * 60 * 1000;
         const elapsed = Date.now() - new Date(alert.lastNotifiedAt).getTime();
-        if (elapsed < cooldownMs) conditionMet = false;
+        if (elapsed < cooldownMs) {
+          console.log(`[ALERT CHECK] ${sym}: in cooldown, skipping`);
+          conditionMet = false;
+        }
       }
 
       if (conditionMet) {
-        // Update alert as triggered
+        console.log(`[ALERT CHECK] ✅ TRIGGERED: ${sym} at ₹${price} (target: ₹${target})`);
+
         await prisma.alert.update({
           where: { id: alert.id },
           data: {
@@ -101,7 +116,6 @@ export async function GET() {
           },
         });
 
-        // Log to history
         await prisma.alertHistory.create({
           data: {
             alertId: alert.id,
@@ -117,10 +131,9 @@ export async function GET() {
           type: alert.type,
           targetValue: target,
           currentPrice: price,
-          message: `${alert.symbol} reached ₹${price.toFixed(2)}`,
+          message: `🔔 ${alert.symbol} reached ₹${price.toFixed(2)}`,
         });
       } else {
-        // Update lastCheckedAt
         await prisma.alert.update({
           where: { id: alert.id },
           data: { lastCheckedAt: new Date() },
