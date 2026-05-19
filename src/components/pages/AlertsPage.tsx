@@ -109,6 +109,29 @@ export default function AlertsPage() {
 
   useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
 
+  // Background polling: check alerts every 30 seconds
+  useEffect(() => {
+    const checkAlerts = async () => {
+      try {
+        const res = await fetch('/api/alerts/check');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.triggered && data.triggered.length > 0) {
+            // Refresh alerts list to show newly triggered alerts
+            fetchAlerts();
+          }
+        }
+      } catch (err) { console.error('Alert check failed:', err); }
+    };
+
+    // Run immediately on mount
+    checkAlerts();
+
+    // Poll every 30 seconds
+    const interval = setInterval(checkAlerts, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchAlerts]);
+
   const handleDelete = async (id: string) => {
     setDeleting(id);
     try {
