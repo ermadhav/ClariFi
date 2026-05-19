@@ -14,22 +14,43 @@ export async function GET() {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     // Fetch all transactions to build a historical timeline of holdings
-    const transactions = await prisma.transaction.findMany({
-      where: { userId },
-      orderBy: { date: 'asc' },
-    });
+    const [transactions, holdings] = await Promise.all([
+      prisma.transaction.findMany({ where: { userId }, orderBy: { date: 'asc' } }),
+      prisma.holding.findMany({ where: { userId } })
+    ]);
 
-    if (transactions.length === 0) {
+    if (transactions.length === 0 && holdings.length === 0) {
       return NextResponse.json({ dividends: [], stats: { total: 0, tds: 0, net: 0, count: 0 } });
     }
 
     // Group transactions by symbol
-    const txBySymbol: Record<string, typeof transactions> = {};
+    const txBySymbol: Record<string, any[]> = {};
     const companyNames: Record<string, string> = {};
+    
+    // First, process explicit transaction history
     transactions.forEach(tx => {
-      if (!txBySymbol[tx.symbol]) txBySymbol[tx.symbol] = [];
-      txBySymbol[tx.symbol].push(tx);
-      companyNames[tx.symbol] = tx.companyName;
+      const sym = tx.symbol || '';
+      if (!sym) return;
+      if (!txBySymbol[sym]) txBySymbol[sym] = [];
+      txBySymbol[sym].push({ type: tx.type, quantity: tx.quantity, date: tx.date });
+      companyNames[sym] = tx.companyName;
+    });
+
+    // Second, if a user has a holding but no transactions (e.g. manually added holdings), 
+    // simulate a "BUY" transaction on their firstBoughtDate so they still get dividends.
+    holdings.forEach(h => {
+      const sym = h.symbol || h.stockSymbol?.split(':')[1] || '';
+      if (!sym) return;
+      companyNames[sym] = h.companyName || sym;
+      
+      if (!txBySymbol[sym] || txBySymbol[sym].length === 0) {
+        txBySymbol[sym] = [{
+          type: 'BUY',
+          quantity: h.quantity,
+          // If no firstBoughtDate is set, assume they've held it for 10 years to catch all historical dividends
+          date: h.firstBoughtDate || new Date(Date.now() - 10 * 365 * 24 * 60 * 60 * 1000)
+        }];
+      }
     });
 
     const uniqueSymbols = Object.keys(txBySymbol);
