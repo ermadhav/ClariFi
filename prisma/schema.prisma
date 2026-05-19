@@ -43,9 +43,10 @@ model User {
   orders         Order[]
   funds          Fund[]
   goals          UserGoal[]
-  subscription   Subscription?
-  brokerAuthStates BrokerAuthState[]
-  bookmarkedNews   UserBookmarkedNews[]
+  subscription       Subscription?
+  brokerAuthStates   BrokerAuthState[]
+  bookmarkedNews     UserBookmarkedNews[]
+  notificationPrefs  NotificationPreferences?
 
   @@map("users")
 }
@@ -261,23 +262,73 @@ model WatchlistStock {
 }
 
 model Alert {
-  id          String    @id @default(cuid())
-  userId      String
-  symbol      String
-  companyName String
-  type        AlertType
-  condition   String
-  targetValue Float?
-  isActive    Boolean   @default(true)
-  triggered   Boolean   @default(false)
-  triggeredAt DateTime?
-  createdAt   DateTime  @default(now())
+  id              String    @id @default(cuid())
+  userId          String
+  symbol          String?   // Null for portfolio-level alerts
+  companyName     String?
+  type            AlertType
+  condition       String    // Human-readable description
+  conditionParams Json?     // Machine-readable: { targetPrice, direction, pct, etc. }
+  targetValue     Float?
+  isActive        Boolean   @default(true)
+  triggered       Boolean   @default(false)
+  triggeredAt     DateTime?
+  triggeredCount  Int       @default(0)
+  lastCheckedAt   DateTime?
+  lastNotifiedAt  DateTime?
+  cooldownMinutes Int       @default(60)
+  notifyInApp     Boolean   @default(true)
+  notifyEmail     Boolean   @default(false)
+  notifySMS       Boolean   @default(false)
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  history AlertHistory[]
 
   @@index([userId])
   @@index([isActive])
+  @@index([symbol, isActive])
   @@map("alerts")
+}
+
+model AlertHistory {
+  id              String   @id @default(cuid())
+  alertId         String
+  triggeredAt     DateTime @default(now())
+  triggerValue    Float?
+  message         String?
+  deliveryStatus  Json?    // { inApp: "sent", email: "sent" }
+
+  alert Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([alertId, triggeredAt])
+  @@map("alert_history")
+}
+
+model NotificationPreferences {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  enableEmail     Boolean  @default(true)
+  enableSMS       Boolean  @default(false)
+  phone           String?
+  phoneVerified   Boolean  @default(false)
+  enableQuietHours Boolean @default(false)
+  quietHoursStart String?  // "22:00"
+  quietHoursEnd   String?  // "08:00"
+  frequency       String   @default("REALTIME") // REALTIME, DAILY_DIGEST, WEEKLY_DIGEST
+  priceAlerts     Boolean  @default(true)
+  portfolioAlerts Boolean  @default(true)
+  riskAlerts      Boolean  @default(true)
+  newsAlerts      Boolean  @default(true)
+  taxAlerts       Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }
 
 model Dividend {
@@ -491,6 +542,19 @@ enum AlertType {
   PERCENT_CHANGE
   VOLUME_SPIKE
   CUSTOM
+  WEEK52_HIGH
+  WEEK52_LOW
+  GAP_UP_DOWN
+  DAILY_PNL
+  DRAWDOWN
+  ALLOCATION_DRIFT
+  SECTOR_CONCENTRATION
+  STOCK_OVEREXPOSURE
+  DIVIDEND_DECLARED
+  TAX_HARVESTING
+  PE_RATIO
+  EARNINGS_UPCOMING
+  BUY_DIP
 }
 
 enum CapitalGainType {
