@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 
-// GET /api/dividends — Fetch real dividend data for user's holdings
+// GET /api/dividends — Fetch real dividend data for user's historical holdings
 export async function GET() {
   try {
     const session = await auth();
@@ -13,24 +13,35 @@ export async function GET() {
     }
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const holdings = await prisma.holding.findMany({ where: { userId } });
+    // Fetch all transactions to build a historical timeline of holdings
+    const transactions = await prisma.transaction.findMany({
+      where: { userId },
+      orderBy: { date: 'asc' },
+    });
 
-    if (holdings.length === 0) {
+    if (transactions.length === 0) {
       return NextResponse.json({ dividends: [], stats: { total: 0, tds: 0, net: 0, count: 0 } });
     }
 
-    // Fetch dividend data for each holding from Yahoo Finance
+    // Group transactions by symbol
+    const txBySymbol: Record<string, typeof transactions> = {};
+    const companyNames: Record<string, string> = {};
+    transactions.forEach(tx => {
+      if (!txBySymbol[tx.symbol]) txBySymbol[tx.symbol] = [];
+      txBySymbol[tx.symbol].push(tx);
+      companyNames[tx.symbol] = tx.companyName;
+    });
+
+    const uniqueSymbols = Object.keys(txBySymbol);
     const allDividends: any[] = [];
 
-    await Promise.all(holdings.map(async (h) => {
-      const sym = h.symbol || h.stockSymbol?.split(':')[1] || '';
-      if (!sym) return;
-
-      const yahooSym = `${sym}.NS`;
+    // Fetch dividend data for each historically held stock
+    await Promise.all(uniqueSymbols.map(async (sym) => {
+      const yahooSym = (sym.includes('.') || sym.startsWith('^')) ? sym : `${sym}.NS`;
       try {
-        // Fetch from Yahoo v8 chart with events=div to get dividend history
+        // Fetch from Yahoo v8 chart with events=div
         const res = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSym}?range=5y&interval=1mo&events=div&_=${Date.now()}`,
+          `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSym}?range=10y&interval=1mo&events=div&_=${Date.now()}`,
           { cache: 'no-store' }
         );
         if (!res.ok) return;
@@ -40,29 +51,48 @@ export async function GET() {
 
         if (!events || typeof events !== 'object') return;
 
+        const symbolTxs = txBySymbol[sym];
+
         // Parse each dividend event
         for (const [timestamp, divData] of Object.entries(events)) {
           const div = divData as any;
           if (!div.amount || div.amount <= 0) continue;
 
           const exDate = new Date(parseInt(timestamp) * 1000);
-          const dividendPerShare = div.amount;
-          const qty = h.quantity;
-          const totalDividend = dividendPerShare * qty;
-          const tds = totalDividend * 0.10; // 10% TDS on dividends above ₹5000
-          const net = totalDividend - tds;
+          
+          // Calculate how many shares the user held just before the ex-date
+          let quantityHeld = 0;
+          for (const tx of symbolTxs) {
+            // To get the dividend, the stock must be bought before the ex-date
+            if (tx.date < exDate) {
+              if (tx.type === 'BUY') quantityHeld += tx.quantity;
+              else if (tx.type === 'SELL') quantityHeld -= tx.quantity;
+            } else {
+              // Transactions on or after ex-date don't affect this dividend payout
+              break; 
+            }
+          }
 
-          allDividends.push({
-            id: `${sym}-${timestamp}`,
-            symbol: sym,
-            companyName: h.companyName || sym,
-            exDate: exDate.toISOString(),
-            dividendPerShare: Math.round(dividendPerShare * 100) / 100,
-            quantityHeld: qty,
-            totalDividend: Math.round(totalDividend * 100) / 100,
-            tdsDeducted: Math.round(tds * 100) / 100,
-            netAmount: Math.round(net * 100) / 100,
-          });
+          // If the user held shares during this dividend payout, record it
+          if (quantityHeld > 0) {
+            const dividendPerShare = div.amount;
+            const totalDividend = dividendPerShare * quantityHeld;
+            // Standard 10% TDS (simplified logic for UI display)
+            const tds = totalDividend * 0.10; 
+            const net = totalDividend - tds;
+
+            allDividends.push({
+              id: `${sym}-${timestamp}`,
+              symbol: sym,
+              companyName: companyNames[sym] || sym,
+              exDate: exDate.toISOString(),
+              dividendPerShare: Math.round(dividendPerShare * 100) / 100,
+              quantityHeld: quantityHeld,
+              totalDividend: Math.round(totalDividend * 100) / 100,
+              tdsDeducted: Math.round(tds * 100) / 100,
+              netAmount: Math.round(net * 100) / 100,
+            });
+          }
         }
       } catch (err) {
         console.error(`Dividend fetch error for ${sym}:`, err);
@@ -91,3 +121,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
